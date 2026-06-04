@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Sil Network</title>
+<style>
+  :root {
+    --bg: #070e16; --surface: #0d1f2d; --surface2: #0f2535;
+    --border: #1e3448; --teal: #2a9d8f; --gold: #e9c46a;
+    --orange: #f4a261; --red: #e76f51; --purple: #a78bfa;
+    --green: #22c55e; --amber: #f59e0b; --blue: #60a5fa;
+    --text: #e8f4f0; --muted: #6b8fa3; --dim: #1e3448;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; padding-bottom: 80px; }
+
+  /* NAV */
+  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; }
+  .nav-btn { flex: 1; padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; color: var(--muted); font-size: 10px; cursor: pointer; transition: color 0.15s; }
+  .nav-btn.active { color: var(--teal); }
+  .nav-btn svg { width: 22px; height: 22px; }
+
+  /* HEADER */
+  .header { background: linear-gradient(135deg, var(--surface) 0%, #0a1a28 100%); border-bottom: 1px solid var(--border); padding: 16px 16px 12px; position: sticky; top: 0; z-index: 50; }
+  .header-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .header-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--teal); margin-bottom: 2px; }
+  .header-title { font-size: 22px; font-weight: 700; color: var(--text); }
+  .header-stats { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  .header-stat { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .header-stat span { color: var(--teal); font-weight: 600; }
+
+  /* TABS */
+  .tab { display: none; padding: 12px 16px; }
+  .tab.active { display: block; }
+
+  /* CARDS */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
+  .card-tap { cursor: pointer; transition: border-color 0.15s; }
+  .card-tap:active { border-color: var(--teal); }
+
+  /* ALERT CARDS */
+  .alert-card { border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; border-left: 3px solid; }
+  .alert-red { background: #e76f5115; border-color: var(--red); }
+  .alert-amber { background: #f59e0b15; border-color: var(--amber); }
+  .alert-teal { background: #2a9d8f15; border-color: var(--teal); }
+  .alert-purple { background: #a78bfa15; border-color: var(--purple); }
+
+  /* TAGS */
+  .tag { display: inline-flex; align-items: center; gap: 3px; border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+
+  /* SEARCH & FILTER */
+  .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .search-input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 14px; outline: none; }
+  .search-input::placeholder { color: var(--muted); }
+  .filter-scroll { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; padding-bottom: 4px; scrollbar-width: none; }
+  .filter-scroll::-webkit-scrollbar { display: none; }
+  .filter-btn { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+  .filter-btn.active { background: var(--teal); border-color: var(--teal); color: #fff; }
+
+  /* CLIENT DETAIL */
+  .detail-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 200; overflow-y: auto; padding-bottom: 40px; }
+  .detail-overlay.open { display: block; }
+  .detail-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px; position: sticky; top: 0; z-index: 10; }
+  .back-btn { display: flex; align-items: center; gap: 6px; color: var(--teal); font-size: 14px; cursor: pointer; border: none; background: none; margin-bottom: 10px; }
+  .policy-row { background: #060d14; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; border-left: 3px solid var(--teal); }
+
+  /* ACTION BUTTONS */
+  .action-btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-teal { background: var(--teal); color: #fff; }
+  .btn-green { background: var(--green); color: #fff; }
+  .btn-amber { background: #f59e0b22; color: var(--amber); border: 1px solid var(--amber); }
+  .btn-red { background: #e76f5122; color: var(--red); border: 1px solid var(--red); }
+  .btn-ghost { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  /* MISC */
+  .section-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; margin-top: 18px; }
+  .section-title:first-child { margin-top: 0; }
+  .row { display: flex; justify-content: space-between; align-items: center; }
+  .col { display: flex; flex-direction: column; gap: 3px; }
+  .name { font-size: 15px; font-weight: 600; color: var(--text); }
+  .sub { font-size: 11px; color: var(--muted); }
+  .money { font-size: 14px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .badge { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .divider { height: 1px; background: var(--border); margin: 12px 0; }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
+  .pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .stat-box { background: var(--surface); border-radius: 10px; padding: 14px; border: 1px solid var(--border); }
+  .followed-up { opacity: 0.45; }
+  .followed-up .badge { color: var(--green) !important; }
+
+  @media (min-width: 600px) {
+    body { max-width: 480px; margin: 0 auto; }
+    .header { border-radius: 0; }
+  }
+  @media (min-width: 900px) {
+    body { max-width: 820px; }
+    .grid-2 { grid-template-columns: repeat(3, 1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- DETAIL OVERLAY -->
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-header">
+    <button class="back-btn" onclick="closeDetail()">
+      <svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Back
+    </button>
+    <div id="detailTitle" class="name" style="font-size:18px"></div>
+    <div id="detailSub" class="sub" style="margin-top:4px"></div>
+    <div id="detailTags" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+  <div style="padding:16px" id="detailBody"></div>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-label">Silvester Chua</div>
+  <div class="header-top">
+    <div class="header-title">Sil Network</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div id="syncStatus" style="font-size:10px;color:var(--muted)">● Live</div>
+      <button onclick="syncData()" style="background:var(--teal);border:none;color:#fff;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">↻ Sync</button>
+    </div>
+  </div>
+  <div class="header-stats">
+    <div class="header-stat"><span id="hClientsCount">59</span> clients</div>
+    <div class="header-stat"><span id="hAUMTotal">—</span> AUM</div>
+    <div class="header-stat" id="hBdayAlert" style="color:var(--amber)"></div>
+    <div class="header-stat" id="hCGAlert" style="color:var(--teal)"></div>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tab active" id="tab-home"></div>
+<div class="tab" id="tab-clients"></div>
+<div class="tab" id="tab-policies"></div>
+<div class="tab" id="tab-collabs"></div>
+<div class="tab" id="tab-dashboard"></div>
+
+<!-- BOTTOM NAV -->
+<nav class="nav">
+  <button class="nav-btn active" onclick="showTab('home',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    Today
+  </button>
+  <button class="nav-btn" onclick="showTab('clients',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Clients
+  </button>
+  <button class="nav-btn" onclick="showTab('policies',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    Policies
+  </button>
+  <button class="nav-btn" onclick="showTab('collabs',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+    Collabs
+  </button>
+  <button class="nav-btn" onclick="showTab('dashboard',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    Dashboard
+  </button>
+</nav>
+
+<script>
+// ── CONFIG ────────────────────────────────────────────────────────────────
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWYJx9CVqe-oI1DQFp1xuS_9QDooXr0QHHCFBQgSAn3x6vIMiupRSaizBo0Y6GNqXe7Q/exec?token=silnetwork2024sc';
+let lastSyncTime = null;
+
+// ── EMBEDDED DATA (source of truth until Sheet API connected) ─────────────
+const CLIENTS_DATA = [
+  {id:"SC-0001",name:"Ang Chong Leong",dob:"1969-02-19",mobile:"91644919",email:"clang13@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:151216,cat:"C2"},
+  {id:"SC-0002",name:"Audrey Felicitas Cunliffe",dob:"1969-05-09",mobile:"96875641",email:"audrey.cunliffe@gmail.com",address:"",area:"",nationality:"India",gender:"Female",aum:91433,cat:"C3"},
+  {id:"SC-0003",name:"Cecilia Ng Shau Ching",dob:"1970-02-24",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:40000,cat:"C4"},
+  {id:"SC-0004",name:"Chan Ho Keong",dob:"1973-05-29",mobile:"98332567",email:"chanhokeong@yahoo.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:127490,cat:"C2"},
+  {id:"SC-0005",name:"Chan May Li Maria",dob:"1963-07-06",mobile:"80113069",email:"pietraconsultants@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:90855,cat:"C3"},
+  {id:"SC-0006",name:"Chan Yew Kong",dob:"1964-10-01",mobile:"96507524",email:"chanyk_andy@outlook.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:118351,cat:"C2"},
+  {id:"SC-0007",name:"Chay Chow Ming",dob:"1972-09-22",mobile:"88751550",email:"changyishi1@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:105073,cat:"C2"},
+  {id:"SC-0008",name:"Chee Mun Hoe",dob:"1985-03-02",mobile:"",email:"",address:"",area:"",nationality:"",gender:"",aum:50000,cat:"C3"},
+  {id:"SC-0009",name:"Chew Lay Chin",dob:"1954-06-20",mobile:"98388774",email:"chewchristina@ymail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:151258,cat:"C2"},
+  {id:"SC-0010",name:"Chew Piek Wee",dob:"1974-07-25",mobile:"93832067",email:"piekwee@yahoo.co.uk",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:106535,cat:"C2"},
+  {id:"SC-0011",name:"Chia Kwan Yee Lilian",dob:"1972-10-31",mobile:"97106061",email:"liliancky@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:226659,cat:"C1"},
+  {id:"SC-0012",name:"Chong Angeline",dob:"1981-06-10",mobile:"90902105",email:"ihr_engel@hotmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:151344,cat:"C2"},
+  {id:"SC-0013",name:"Chong Mui Quee Rose",dob:"1968-11-27",mobile:"93294922",email:"rosecocochong@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:121325,cat:"C2"},
+  {id:"SC-0014",name:"Esther Tan Siew Lin",dob:"1963-11-17",mobile:"91179196",email:"esthertansl@yahoo.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:99459,cat:"C3"},
+  {id:"SC-0015",name:"Fitri Fatimah",dob:"1992-12-11",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:30000,cat:"C4"},
+  {id:"SC-0016",name:"Foo Teck Chong",dob:"1967-05-26",mobile:"93893337",email:"teckchong.fooftc@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Male",aum:150060,cat:"C2"},
+  {id:"SC-0017",name:"Ho Eng Kwang Daniel",dob:"1968-03-23",mobile:"97467375",email:"daniel.ho787@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:301171,cat:"C1"},
+  {id:"SC-0018",name:"Ku Foo Hong",dob:"1970-12-24",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:12000,cat:"C4"},
+  {id:"SC-0019",name:"Lam Soon Choy",dob:"1973-09-14",mobile:"96886554",email:"lamsoonchoy@yahoo.com",address:"",area:"",nationality:"Malaysia",gender:"Male",aum:342114,cat:"C1"},
+  {id:"SC-0020",name:"Lau Saw Kuan",dob:"1989-07-15",mobile:"98241502",email:"cheryllau07@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:3327,cat:"C4"},
+  {id:"SC-0021",name:"Ler Hui Min",dob:"1982-05-27",mobile:"91727604",email:"huiminler@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:100840,cat:"C2"},
+  {id:"SC-0022",name:"Lim Sock Lip",dob:"1964-05-21",mobile:"92368234",email:"socklip@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Male",aum:199997,cat:"C2"},
+  {id:"SC-0023",name:"Lin Loh Mei",dob:"1963-11-23",mobile:"81127100",email:"meilin_loh@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:90579,cat:"C3"},
+  {id:"SC-0024",name:"Liu Danjun",dob:"1980-12-28",mobile:"80676884",email:"nqq1024@outlook.com",address:"",area:"",nationality:"China",gender:"Male",aum:201763,cat:"C1"},
+  {id:"SC-0025",name:"Liu Yi Lei Lily",dob:"1982-11-07",mobile:"82331178",email:"liuyileilily@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:60745,cat:"C3"},
+  {id:"SC-0026",name:"Loh Kai Zhi",dob:"1986-11-29",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:30000,cat:"C4"},
+  {id:"SC-0027",name:"Loh Mei Lin",dob:"1963-11-23",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:12000,cat:"C4"},
+  {id:"SC-0028",name:"Loh Wen Jun",dob:"",mobile:"",email:"",address:"",area:"",nationality:"",gender:"",aum:57600,cat:"C3"},
+  {id:"SC-0029",name:"Low Sue May",dob:"1973-10-08",mobile:"96602224",email:"suemay7@yahoo.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:300234,cat:"C1"},
+  {id:"SC-0030",name:"Low Zhongyue",dob:"1987-02-17",mobile:"81183389",email:"zhongyue87@hotmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:103858,cat:"C2"},
+  {id:"SC-0031",name:"Malar San Myint",dob:"1980-01-10",mobile:"91880077",email:"myintmalarsan@gmail.com",address:"",area:"",nationality:"Myanmar",gender:"Female",aum:60812,cat:"C3"},
+  {id:"SC-0032",name:"Mithren Rajandran",dob:"1994-06-14",mobile:"98515214",email:"mithrenrajan@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:361173,cat:"C1"},
+  {id:"SC-0033",name:"Ng Siew Khim",dob:"1962-07-26",mobile:"97804388",email:"kymberly_ng@live.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:286967,cat:"C1"},
+  {id:"SC-0034",name:"Ng Yee Lee",dob:"1981-06-18",mobile:"91151829",email:"lyn_atomy@yahoo.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:240601,cat:"C1"},
+  {id:"SC-0035",name:"Nur Ashila Binte Abdul Halim",dob:"1989-09-10",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:20000,cat:"C4"},
+  {id:"SC-0036",name:"Oh Soon Keong",dob:"1957-06-25",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:50000,cat:"C3"},
+  {id:"SC-0037",name:"Ong Soon Seng",dob:"1964-02-29",mobile:"96287682",email:"garyongsoonseng@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:359882,cat:"C1"},
+  {id:"SC-0038",name:"Ong Yen Mui Sally",dob:"1975-08-05",mobile:"6585115756",email:"vinsal75@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:60979,cat:"C3"},
+  {id:"SC-0039",name:"Ong Yew Mey",dob:"1971-04-12",mobile:"93828281",email:"oyewmey@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:40890,cat:"C4"},
+  {id:"SC-0040",name:"Osman bin Abdullah",dob:"1962-03-13",mobile:"98779448",email:"osmanabdullah7@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:60032,cat:"C3"},
+  {id:"SC-0041",name:"Quek Guan Liang",dob:"1958-03-23",mobile:"84990225",email:"glquek@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:91515,cat:"C3"},
+  {id:"SC-0042",name:"Quek Zhilong",dob:"1988-02-23",mobile:"98385764",email:"qk.zhilong@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:451100,cat:"C1"},
+  {id:"SC-0043",name:"Rethina Kumar Krishnamoorthy",dob:"1966-07-29",mobile:"91861810",email:"krethinakumar07@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:150326,cat:"C2"},
+  {id:"SC-0044",name:"Shariffideen Ridwan Salihin",dob:"1991-11-29",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:30000,cat:"C4"},
+  {id:"SC-0045",name:"She Aiqi",dob:"1982-02-06",mobile:"97944305",email:"tazperliz@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:88463,cat:"C3"},
+  {id:"SC-0046",name:"Siti Zaleha Binte Ismail",dob:"1979-01-01",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:6000,cat:"C4"},
+  {id:"SC-0047",name:"Tan Bin",dob:"1974-01-29",mobile:"90013516",email:"tiger40490@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:150899,cat:"C2"},
+  {id:"SC-0048",name:"Tan Keong Eng",dob:"1965-09-07",mobile:"81578303",email:"ketanke@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Male",aum:120531,cat:"C2"},
+  {id:"SC-0049",name:"Tan Kia Ting",dob:"1970-01-29",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:40000,cat:"C4"},
+  {id:"SC-0050",name:"Tan Sey Kuang",dob:"1984-05-23",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:36000,cat:"C4"},
+  {id:"SC-0051",name:"Tan Sock Hiang",dob:"1968-08-03",mobile:"98262149",email:"toberhead01@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:250685,cat:"C1"},
+  {id:"SC-0052",name:"Tan York Han",dob:"1970-04-21",mobile:"91297001",email:"yorkhan21@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Male",aum:61335,cat:"C3"},
+  {id:"SC-0053",name:"Tey Kai Wan",dob:"1959-07-12",mobile:"98586011",email:"teykw8@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:75543,cat:"C3"},
+  {id:"SC-0054",name:"Viriyasaksathian Boonyarat",dob:"1986-01-13",mobile:"82895435",email:"boonyarat.v@gmail.com",address:"",area:"",nationality:"Thailand",gender:"Female",aum:60549,cat:"C3"},
+  {id:"SC-0055",name:"Wee Geok Tin",dob:"1966-05-26",mobile:"97233228",email:"jennywee66@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:118139,cat:"C2"},
+  {id:"SC-0056",name:"Wu Wenqing Arthur",dob:"1984-10-25",mobile:"94591022",email:"wenart@hotmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:301620,cat:"C1"},
+  {id:"SC-0057",name:"Yap Shao Kuan Kevin",dob:"",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:35000,cat:"C4"},
+  {id:"SC-0058",name:"Zaharah bte Sarmani",dob:"1967-01-28",mobile:"90703584",email:"harahaz01@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:80194,cat:"C3"},
+  {id:"SC-0059",name:"Zhang Tie",dob:"",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:166621,cat:"C2"},
+];
+
+const POLICIES_DATA = [
+  {polId:"83091660",clientId:"SC-0001",client:"Ang Chong Leong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-30",freq:"Yearly",ap:50405.5,sa:86000,maxPay:3},
+  {polId:"82965204",clientId:"SC-0002",client:"Audrey Felicitas Cunliffe",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-26",freq:"Yearly",ap:30477.75,sa:52000,maxPay:3},
+  {polId:"1814851772",clientId:"SC-0003",client:"Cecilia Ng Shau Ching",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-05-07",freq:"Yearly",ap:10000,sa:10100,maxPay:null},
+  {polId:"80541194",clientId:"SC-0003",client:"Cecilia Ng Shau Ching",insurer:"FWD",product:"FWD Invest Flexi Elite",status:"In Force",inception:"2025-08-01",freq:"Yearly",ap:20000,sa:0,maxPay:null},
+  {polId:"83691135",clientId:"SC-0004",client:"Chan Ho Keong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2025-07-22",freq:"Yearly",ap:100490.25,sa:174000,maxPay:3},
+  {polId:"1814915986",clientId:"SC-0004",client:"Chan Ho Keong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-18",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
+  {polId:"80591225",clientId:"SC-0004",client:"Chan Ho Keong",insurer:"FWD",product:"FWD Invest Flexi Elite",status:"In Force",inception:"2025-10-27",freq:"Yearly",ap:15000,sa:0,maxPay:null},
+  {polId:"83092371",clientId:"SC-0005",client:"Chan May Li Maria",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-26",freq:"Yearly",ap:30284.85,sa:51000,maxPay:3},
+  {polId:"82966045",clientId:"SC-0006",client:"Chan Yew Kong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-27",freq:"Yearly",ap:35450.4,sa:60000,maxPay:3},
+  {polId:"1814928992",clientId:"SC-0006",client:"Chan Yew Kong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-26",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
+  {polId:"83238539",clientId:"SC-0007",client:"Chay Chow Ming",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-31",freq:"Yearly",ap:35024.4,sa:60000,maxPay:3},
+  {polId:"80498331",clientId:"SC-0008",client:"Chee Mun Hoe",insurer:"FWD",product:"FWD Wealth Gen",status:"In Force",inception:"2025-06-09",freq:"Yearly",ap:50000,sa:100000,maxPay:null},
+  {polId:"83043276",clientId:"SC-0009",client:"Chew Lay Chin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-25",freq:"Yearly",ap:50419.35,sa:82000,maxPay:3},
+  {polId:"83125344",clientId:"SC-0010",client:"Chew Piek Wee",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-24",freq:"Yearly",ap:35511.8,sa:61000,maxPay:3},
+  {polId:"83325954",clientId:"SC-0011",client:"Chia Kwan Yee Lilian",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-03-30",freq:"Yearly",ap:75552.95,sa:131000,maxPay:3},
+  {polId:"83128517",clientId:"SC-0012",client:"Chong Angeline",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-27",freq:"Yearly",ap:50447.85,sa:87000,maxPay:3},
+  {polId:"83049256",clientId:"SC-0013",client:"Chong Mui Quee Rose",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-28",freq:"Yearly",ap:40441.6,sa:69000,maxPay:3},
+  {polId:"82898237",clientId:"SC-0014",client:"Esther Tan Siew Lin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-05-17",freq:"Yearly",ap:33153.15,sa:56000,maxPay:3},
+  {polId:"1814575080",clientId:"SC-0015",client:"Fitri Fatimah",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2024-10-22",freq:"Monthly",ap:15000,sa:17675,maxPay:null},
+  {polId:"82985287",clientId:"SC-0016",client:"Foo Teck Chong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-19",freq:"Yearly",ap:50019.95,sa:85000,maxPay:3},
+  {polId:"83134814",clientId:"SC-0017",client:"Ho Eng Kwang Daniel",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-12-01",freq:"Yearly",ap:100390.2,sa:173000,maxPay:3},
+  {polId:"1814912985",clientId:"SC-0018",client:"Ku Foo Hong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-18",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
+  {polId:"83235039",clientId:"SC-0019",client:"Lam Soon Choy",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-29",freq:"Yearly",ap:114038.1,sa:198000,maxPay:3},
+  {polId:"G2563411",clientId:"SC-0020",client:"Lau Saw Kuan",insurer:"Singlife",product:"Singlife CareShield Standard",status:"In Force",inception:"2025-02-21",freq:"Yearly",ap:1663.34,sa:7000,maxPay:null},
+  {polId:"83310028",clientId:"SC-0021",client:"Ler Hui Min",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-03-19",freq:"Yearly",ap:33613.35,sa:58000,maxPay:3},
+  {polId:"82894976",clientId:"SC-0022",client:"Lim Sock Lip",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-05-16",freq:"Single",ap:49997.1,sa:30000,maxPay:1},
+  {polId:"1452328044",clientId:"SC-0022",client:"Lim Sock Lip",insurer:"Manulife",product:"Manulife InvestReady III",status:"Premium Paying",inception:"2023-11-29",freq:"Yearly",ap:50000,sa:0,maxPay:null},
+  {polId:"82928735",clientId:"SC-0023",client:"Lin Loh Mei",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-06-15",freq:"Yearly",ap:30193.05,sa:51000,maxPay:3},
+  {polId:"1452328101",clientId:"SC-0028",client:"Loh Wen Jun",insurer:"Manulife",product:"Manulife InvestReady III",status:"Premium Paying",inception:"2023-12-26",freq:"Yearly",ap:19200,sa:0,maxPay:null},
+  {polId:"83500317",clientId:"SC-0024",client:"Liu Danjun",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-08-08",freq:"Yearly",ap:100881.45,sa:176000,maxPay:3},
+  {polId:"83235491",clientId:"SC-0025",client:"Liu Yi Lei Lily",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-29",freq:"Yearly",ap:20248.4,sa:34000,maxPay:3},
+  {polId:"1814940149",clientId:"SC-0026",client:"Loh Kai Zhi",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2025-06-30",freq:"Yearly",ap:30000,sa:30300,maxPay:null},
+  {polId:"1814975286",clientId:"SC-0027",client:"Loh Mei Lin",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-07-25",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
+  {polId:"83009012",clientId:"SC-0029",client:"Low Sue May",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-12",freq:"Yearly",ap:100077.85,sa:174000,maxPay:3},
+  {polId:"82875672",clientId:"SC-0030",client:"Low Zhongyue",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-23",freq:"Yearly",ap:34619.4,sa:60000,maxPay:3},
+  {polId:"82966219",clientId:"SC-0031",client:"Malar San Myint",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-27",freq:"Yearly",ap:20270.5,sa:34000,maxPay:3},
+  {polId:"83083094",clientId:"SC-0032",client:"Mithren Rajandran",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-30",freq:"Yearly",ap:40079.9,sa:70000,maxPay:3},
+  {polId:"83083105",clientId:"SC-0032",client:"Mithren Rajandran",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-30",freq:"Yearly",ap:80310.95,sa:142000,maxPay:3},
+  {polId:"83022855",clientId:"SC-0033",client:"Ng Siew Khim",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-15",freq:"Yearly",ap:20183.5,sa:33000,maxPay:3},
+  {polId:"83024084",clientId:"SC-0033",client:"Ng Siew Khim",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-15",freq:"Yearly",ap:75472.2,sa:133000,maxPay:3},
+  {polId:"82983005",clientId:"SC-0034",client:"Ng Yee Lee",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-16",freq:"Yearly",ap:80200.4,sa:140000,maxPay:3},
+  {polId:"1814751982",clientId:"SC-0035",client:"Nur Ashila Binte Abdul Halim",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2025-02-28",freq:"Yearly",ap:10000,sa:10100,maxPay:null},
+  {polId:"1814580438",clientId:"SC-0036",client:"Oh Soon Keong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2024-10-18",freq:"Yearly",ap:25000,sa:50500,maxPay:null},
+  {polId:"82991266",clientId:"SC-0037",client:"Ong Soon Seng",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-26",freq:"Yearly",ap:119960.65,sa:207000,maxPay:3},
+  {polId:"82981124",clientId:"SC-0038",client:"Ong Yen Mui Sally",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-14",freq:"Yearly",ap:20326.25,sa:34000,maxPay:3},
+  {polId:"83560499",clientId:"SC-0039",client:"Ong Yew Mey",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-09-26",freq:"Yearly",ap:20444.9,sa:34000,maxPay:3},
+  {polId:"07132487",clientId:"SC-0040",client:"Osman bin Abdullah",insurer:"Singlife",product:"MyLifeIncome II",status:"In Force",inception:"2021-06-14",freq:"Single",ap:60032.4,sa:40000,maxPay:1},
+  {polId:"83329767",clientId:"SC-0041",client:"Quek Guan Liang",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-04-03",freq:"Yearly",ap:30504.95,sa:49000,maxPay:3},
+  {polId:"83481417",clientId:"SC-0042",client:"Quek Zhilong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-07-17",freq:"Yearly",ap:75238.7,sa:132000,maxPay:3},
+  {polId:"83224062",clientId:"SC-0042",client:"Quek Zhilong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-22",freq:"Yearly",ap:100207.4,sa:176000,maxPay:3},
+  {polId:"83458034",clientId:"SC-0043",client:"Rethina Kumar Krishnamoorthy",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-06-26",freq:"Yearly",ap:75163.15,sa:129000,maxPay:3},
+  {polId:"1008032121",clientId:"SC-0044",client:"Shariffideen Ridwan Salihin",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-04-09",freq:"Yearly",ap:15000,sa:15150,maxPay:null},
+  {polId:"83456037",clientId:"SC-0045",client:"She Aiqi",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-06-24",freq:"Yearly",ap:25026.15,sa:42000,maxPay:3},
+  {polId:"07088607",clientId:"SC-0045",client:"She Aiqi",insurer:"Singlife",product:"MyLifeIncome II",status:"In Force",inception:"2020-12-17",freq:"Single",ap:38410.5,sa:25000,maxPay:1},
+  {polId:"1815009094",clientId:"SC-0046",client:"Siti Zaleha Binte Ismail",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2025-09-23",freq:"Yearly",ap:6000,sa:6060,maxPay:null},
+  {polId:"83540494",clientId:"SC-0047",client:"Tan Bin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-09-13",freq:"Yearly",ap:75449.45,sa:131000,maxPay:3},
+  {polId:"83115006",clientId:"SC-0048",client:"Tan Keong Eng",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-15",freq:"Yearly",ap:40177.15,sa:68000,maxPay:3},
+  {polId:"1814851736",clientId:"SC-0049",client:"Tan Kia Ting",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-05-07",freq:"Yearly",ap:10000,sa:10100,maxPay:null},
+  {polId:"80541110",clientId:"SC-0049",client:"Tan Kia Ting",insurer:"FWD",product:"FWD Invest Flexi Elite",status:"In Force",inception:"2025-07-31",freq:"Yearly",ap:20000,sa:0,maxPay:null},
+  {polId:"1814587973",clientId:"SC-0050",client:"Tan Sey Kuang",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2024-10-23",freq:"Yearly",ap:18000,sa:36360,maxPay:null},
+  {polId:"83279134",clientId:"SC-0051",client:"Tan Sock Hiang",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-02-29",freq:"Yearly",ap:83561.8,sa:144000,maxPay:3},
+  {polId:"82974957",clientId:"SC-0052",client:"Tan York Han",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-05",freq:"Yearly",ap:20444.9,sa:34000,maxPay:3},
+  {polId:"83789415",clientId:"SC-0053",client:"Tey Kai Wan",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2025-09-08",freq:"Yearly",ap:75543.3,sa:126000,maxPay:3},
+  {polId:"82972122",clientId:"SC-0054",client:"Viriyasaksathian Boonyarat",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-02",freq:"Yearly",ap:20183.1,sa:34000,maxPay:3},
+  {polId:"82965929",clientId:"SC-0055",client:"Wee Geok Tin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-27",freq:"Yearly",ap:35379.6,sa:60000,maxPay:3},
+  {polId:"1814929033",clientId:"SC-0055",client:"Wee Geok Tin",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-26",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
+  {polId:"82960691",clientId:"SC-0056",client:"Wu Wenqing Arthur",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-28",freq:"Yearly",ap:100540,sa:176000,maxPay:3},
+  {polId:"1007966066",clientId:"SC-0057",client:"Yap Shao Kuan Kevin",insurer:"Income",product:"Gro Retire Flex Pro (GRME)",status:"Inforce",inception:"2023-10-03",freq:"Single",ap:35000.35,sa:0,maxPay:1},
+  {polId:"83489924",clientId:"SC-0058",client:"Zaharah bte Sarmani",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-07-24",freq:"Yearly",ap:40096.9,sa:68000,maxPay:3},
+  {polId:"83496838",clientId:"SC-0059",client:"Zhang Tie",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-08-04",freq:"Yearly",ap:83310.55,sa:146000,maxPay:3},
+];
+
+const COLLABS_DATA = [
+  {id:"CO-001",name:"Edward Thiravej",loc:"BKK, TH",type:"Lawyer",met:"2026-05-21",summary:"International Law. Joint legacy planning talks.",action:"Organise joint talk"},
+  {id:"CO-002",name:"Ploy / Mod (PK Nishimura)",loc:"BKK, TH",type:"Lawyer",met:"2026-05-22",summary:"PPLI & Family Office. Link with Alton.",action:"Follow up joint talks"},
+  {id:"CO-003",name:"Jonathan C. Blaine",loc:"BKK, TH",type:"Lawyer",met:"2026-05-13",summary:"Will bring you in for client chats in BKK.",action:"Schedule BKK visit"},
+  {id:"CO-004",name:"Laurent Benoit",loc:"BKK, TH",type:"Lawyer",met:"2026-05-15",summary:"Monaco HNW clients. Family office shift to SG.",action:"Arrange lunch"},
+  {id:"CO-005",name:"Greg",loc:"BKK, TH",type:"Lawyer",met:"2026-04-17",summary:"Trust setup SG. CAMCHAM chairman.",action:"Plan CAMCHAM talk"},
+  {id:"CO-006",name:"Rasa Taokaew",loc:"BKK, TH",type:"Lawyer",met:"2026-05-23",summary:"Family law office Pichit. New to trust.",action:"Send trust materials"},
+  {id:"CO-007",name:"Julio Pingarron",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Receptive to buy-sell. Med-sized biz.",action:"Follow up buy-sell"},
+  {id:"CO-008",name:"Shota (Rajah & Tann TH)",loc:"BKK, TH",type:"Lawyer",met:"2026-05-21",summary:"Receptive buy-sell. Will keep you in mind.",action:"Nurture periodically"},
+  {id:"CO-009",name:"Mikhail Borodin",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Sensitive — Russian clients.",action:"Keep warm, low pressure"},
+  {id:"CO-010",name:"Yong Rachapol Sirikulchit",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Watson Farley & Williams.",action:"Initial follow up"},
+  {id:"CO-011",name:"Molthida / Pear (WFW)",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Watson Farley & Williams.",action:"Initial follow up"},
+  {id:"CO-012",name:"Ryan Crowley",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Roughly knows what you do.",action:"Explore collab"},
+  {id:"CO-013",name:"Som",loc:"BKK, TH",type:"Lawyer",met:"2026-04-17",summary:"Buy-sell agreement insurance.",action:"Highlight case studies"},
+  {id:"CO-014",name:"Kris & Gf",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Friendship established.",action:"Propose collab"},
+  {id:"CO-015",name:"Jummy (SME Acc)",loc:"BKK, TH",type:"Accountant",met:"",summary:"Busy May. Arrange chat.",action:"Arrange chat"},
+  {id:"CO-016",name:"Alton",loc:"SG",type:"Associate",met:"2026-04-29",summary:"Chatted a few times.",action:"Ask for employee benefit referrals"},
+  {id:"CO-017",name:"Shaun Teh (Citi IPB)",loc:"SG",type:"Banker",met:"2026-03-23",summary:"Potential collab. Min $350k.",action:"Follow up collab structure"},
+  {id:"CO-018",name:"Khun Oil (UOB PB)",loc:"SG/BKK",type:"Banker",met:"2026-04-08",summary:"TH tie-ups + rev sharing.",action:"Follow up post-BKK"},
+  {id:"CO-019",name:"Khun Bew (OCBC PPB)",loc:"SG/BKK",type:"Banker",met:"2026-04-21",summary:"Referrals + corp investment. Min $1m.",action:"Update on next BKK trip"},
+  {id:"CO-020",name:"Albert Savier (BOS)",loc:"SG",type:"Banker",met:"2026-04-09",summary:"Min AUM $5m. Property pledge.",action:"Identify mutual clients"},
+  {id:"CO-021",name:"Raymond Chew (BOS)",loc:"SG",type:"Banker",met:"2026-04-09",summary:"Japan citizenship / worldwide asset declaration.",action:"Follow up Japan angle"},
+  {id:"CO-022",name:"Khun May (TTB PB+)",loc:"BKK, TH",type:"Banker",met:"2026-03-19",summary:"Open to collab.",action:"Maintain — BKK visit"},
+  {id:"CO-023",name:"Pi O & Pi O+",loc:"HY, TH",type:"Network",met:"",summary:"Hat Yai client meetups.",action:"Plan Hat Yai trip"},
+  {id:"CO-024",name:"Grace Ng (OCBC Offshore)",loc:"SG",type:"Banker",met:"2026-03-23",summary:"New to offshore.",action:"Keep warm — educate"},
+  {id:"CO-025",name:"Tony Koe",loc:"SG",type:"Referral",met:"",summary:"Referred by Alton.",action:"Initial meeting"},
+  {id:"CO-026",name:"Mookie",loc:"TH",type:"Network",met:"",summary:"Met in Hat Yai flood.",action:"Keep in touch"},
+  {id:"CO-027",name:"Chen Shilun",loc:"SG",type:"Lawyer",met:"",summary:"Referred by Alton.",action:"Initial meeting"},
+  {id:"CO-028",name:"Chuan Sheng",loc:"MY",type:"Lawyer",met:"",summary:"KL/PG Lawyer, Chua Clan.",action:"Leverage Chua Clan connection"},
+];
+
+// ── STATE ──────────────────────────────────────────────────────────────────
+let followedUp = JSON.parse(localStorage.getItem('sil_followedup') || '{}');
+let clientFilter = 'All', polFilter = 'All', collabFilter = 'All';
+let clientSearch = '', polSearch = '', collabSearch = '';
+
+// ── HELPERS ────────────────────────────────────────────────────────────────
+const fmt = n => 'SGD ' + Math.round(n).toLocaleString('en-SG');
+const fmtK = n => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(0)+'K' : Math.round(n).toString();
+
+function daysUntilBday(dob) {
+  if (!dob) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const b = new Date(dob);
+  let next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
+  if (next < today) next.setFullYear(today.getFullYear() + 1);
+  return Math.round((next - today) / 86400000);
+}
+
+function cgDate(inception) {
+  const d = new Date(inception);
+  try { return new Date(d.getFullYear()+3, d.getMonth(), d.getDate()); }
+  catch { return new Date(d.getFullYear()+3, d.getMonth(), 28); }
+}
+
+function nextPremiumDate(inception, freq) {
+  if (!inception || freq === 'Single') return null;
+  const inc = new Date(inception); inc.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  let d = new Date(inc);
+  while (d <= today) {
+    if (freq === 'Yearly') d.setFullYear(d.getFullYear()+1);
+    else if (freq === 'Monthly') d.setMonth(d.getMonth()+1);
+    else break;
+  }
+  return d;
+}
+
+function isFullyPaid(p) {
+  if (p.freq === 'Single') return true;
+  if (!p.maxPay) return false;
+  const inc = new Date(p.inception);
+  const today = new Date();
+  let paid = 0, d = new Date(inc);
+  while (d <= today) { paid++; d.setFullYear(d.getFullYear()+1); }
+  return paid >= p.maxPay;
+}
+
+function catColor(cat) {
+  return cat==='C1'?'var(--purple)':cat==='C2'?'var(--teal)':cat==='C3'?'var(--amber)':'var(--muted)';
+}
+function insurerColor(ins) {
+  return ins==='Singlife'?'var(--teal)':ins==='Income'?'var(--amber)':ins==='FWD'?'var(--red)':ins==='Manulife'?'var(--purple)':'var(--blue)';
+}
+function tag(label, color) {
+  return `<span class="tag" style="color:${color};border-color:${color}44;background:${color}15">${label}</span>`;
+}
+
+// ── SYNC FROM GOOGLE APPS SCRIPT ─────────────────────────────────────────
+async function syncData() {
+  const el = document.getElementById('syncStatus');
+  el.innerHTML = '↻ Syncing...';
+  el.style.color = 'var(--amber)';
+  try {
+    const r = await fetch(APPS_SCRIPT_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const raw = await r.json();
+
+    // ── Parse Clients (row 0=title, row 1=headers, row 2=note, rows 3+ = data)
+    // Columns: A=ClientID B=Name C=DOB D=Age E=Gender F=Nationality G=Mobile
+    //          H=Email I=Address J=Area K=Country L=C-Category M=TotalAUM
+    //          N=Notes O=LastContact P=NextAction Q=IG R=FB S=LinkedIn T=WhatsApp
+    if (raw.clients && raw.clients.length > 3) {
+      const rows = raw.clients.slice(3).filter(r => r[0] && r[1]);
+      CLIENTS_DATA.length = 0;
+      rows.forEach(r => {
+        const dobRaw = r[2] ? String(r[2]).trim() : '';
+        const aum = parseFloat(String(r[12]).replace(/[^0-9.]/g,'')) || 0;
+        CLIENTS_DATA.push({
+          id:          String(r[0]).trim(),
+          name:        String(r[1]).trim(),
+          dob:         dobRaw,
+          age:         parseInt(r[3]) || null,
+          gender:      String(r[4]||'').trim(),
+          nationality: String(r[5]||'').trim(),
+          mobile:      String(r[6]||'').trim(),
+          email:       String(r[7]||'').trim(),
+          address:     String(r[8]||'').trim(),
+          area:        String(r[9]||'').trim(),
+          aum:         aum,
+          cat:         aum>=200000?'C1':aum>=100000?'C2':aum>=50000?'C3':'C4',
+          notes:       String(r[13]||'').trim(),
+          lastContact: String(r[14]||'').trim(),
+          nextAction:  String(r[15]||'').trim(),
+          ig:          String(r[16]||'').trim(),
+          fb:          String(r[17]||'').trim(),
+          linkedin:    String(r[18]||'').trim(),
+          wa:          String(r[19]||'').trim(),
+        });
+      });
+    }
+
+    // ── Parse Policies (row 0=title, row 1=headers, rows 2+ = data)
+    // Columns: A=PolicyID B=ClientID C=ClientName D=Insurer E=Product F=Status
+    //          G=Inception H=Freq I=AnnualPremium J=SumAssured K=PolicyAge
+    //          L=PaymentsMade M=MaxPayments N=FullyPaid O=CapitalGuaranteed
+    //          P=CGDate Q=DaysToCG R=NextPremiumDue
+    if (raw.policies && raw.policies.length > 2) {
+      const rows = raw.policies.slice(2).filter(r => r[0] && r[1]);
+      POLICIES_DATA.length = 0;
+      rows.forEach(r => {
+        const maxP = parseInt(r[12]) || null;
+        POLICIES_DATA.push({
+          polId:     String(r[0]).trim(),
+          clientId:  String(r[1]).trim(),
+          client:    String(r[2]).trim(),
+          insurer:   String(r[3]).trim(),
+          product:   String(r[4]).trim(),
+          status:    String(r[5]).trim(),
+          inception: String(r[6]||'').trim().substring(0,10),
+          freq:      String(r[7]).trim(),
+          ap:        parseFloat(String(r[8]).replace(/[^0-9.]/g,'')) || 0,
+          sa:        parseFloat(String(r[9]).replace(/[^0-9.]/g,'')) || 0,
+          maxPay:    maxP,
+        });
+      });
+    }
+
+    // ── Parse Collabs (row 0=title, row 1=headers, rows 2+ = data)
+    // Columns: A=ID B=Name C=Location D=Type E=FirstMet F=Summary G=NextAction
+    //          H=LastTouchpoint I=Platform J=Notes
+    if (raw.collabs && raw.collabs.length > 2) {
+      const rows = raw.collabs.slice(2).filter(r => r[0] && r[1]);
+      COLLABS_DATA.length = 0;
+      rows.forEach(r => {
+        COLLABS_DATA.push({
+          id:      String(r[0]).trim(),
+          name:    String(r[1]).trim(),
+          loc:     String(r[2]||'').trim(),
+          type:    String(r[3]||'').trim(),
+          met:     String(r[4]||'').trim().substring(0,10),
+          summary: String(r[5]||'').trim(),
+          action:  String(r[6]||'').trim(),
+          lastTouch:String(r[7]||'').trim(),
+          platform: String(r[8]||'').trim(),
+          notes:   String(r[9]||'').trim(),
+        });
+      });
+    }
+
+    lastSyncTime = new Date();
+    el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
+    el.style.color = 'var(--green)';
+    renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
+  } catch(e) {
+    el.innerHTML = '✗ Sync failed';
+    el.style.color = 'var(--red)';
+    console.error('Sync error:', e);
+  }
+}
+
+// ── TAB NAVIGATION ────────────────────────────────────────────────────────
+function showTab(name, btn) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  btn.classList.add('active');
+  renderTab(name);
+}
+
+function renderTab(name) {
+  if (name==='home') renderHome();
+  else if (name==='clients') renderClients();
+  else if (name==='policies') renderPolicies();
+  else if (name==='collabs') renderCollabs();
+  else if (name==='dashboard') renderDashboard();
+}
+
+// ── HOME ──────────────────────────────────────────────────────────────────
+function renderHome() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days<=30).sort((a,b)=>a.days-b.days);
+  const cgAlerts = POLICIES_DATA.filter(p=>p.product.includes('Flexi Life Income II')).map(p=>{
+    const cg = cgDate(p.inception);
+    const days = Math.round((cg-today)/86400000);
+    return {...p, cgDate:cg, daysToC:days};
+  }).filter(p=>p.daysToC>0&&p.daysToC<=180).sort((a,b)=>a.daysToC-b.daysToC);
+
+  const premDue = POLICIES_DATA.filter(p=>!isFullyPaid(p)&&p.freq!=='Single').map(p=>{
+    const next = nextPremiumDate(p.inception, p.freq);
+    if (!next) return null;
+    const days = Math.round((next-today)/86400000);
+    return {...p, nextDate:next, daysToP:days};
+  }).filter(p=>p&&p.daysToP>0&&p.daysToP<=90).sort((a,b)=>a.daysToP-b.daysToP);
+
+  // Update header alerts
+  document.getElementById('hBdayAlert').textContent = bdayAlerts.length ? `🎂 ${bdayAlerts.length} bdays` : '';
+  document.getElementById('hCGAlert').textContent = cgAlerts.length ? `🛡 ${cgAlerts.length} CG alerts` : '';
+  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
+  document.getElementById('hAUMTotal').textContent = 'SGD '+fmtK(totalAUM);
+
+  let html = '';
+
+  // BIRTHDAYS
+  if (bdayAlerts.length) {
+    html += `<div class="section-title">🎂 Birthdays — Next 30 Days</div>`;
+    bdayAlerts.forEach(c => {
+      const urgent = c.days <= 7;
+      html += `<div class="alert-card ${urgent?'alert-red':'alert-amber'}">
+        <div class="row">
+          <div class="col">
+            <div class="name" style="font-size:14px">${c.name}</div>
+            <div class="sub">${new Date(c.dob).toLocaleDateString('en-GB',{day:'numeric',month:'long'})} · Age ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear() : new Date().getFullYear()-new Date(c.dob).getFullYear()-1} → ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear()+1 : new Date().getFullYear()-new Date(c.dob).getFullYear()}</div>
+            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+              ${tag(c.cat, catColor(c.cat))}
+              ${c.mobile?`<a href="https://wa.me/65${c.mobile}" style="text-decoration:none">${tag('💬 WhatsApp','var(--green)')}</a>`:''}
+            </div>
+          </div>
+          <div style="text-align:right">
+            <div class="badge" style="color:${urgent?'var(--red)':'var(--amber)'}">${c.days===0?'TODAY':c.days+'d'}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // CAPITAL GUARANTEE ALERTS
+  if (cgAlerts.length) {
+    html += `<div class="section-title">🛡 Capital Guarantee — Approaching 3 Years</div>`;
+    cgAlerts.forEach(p => {
+      const client = CLIENTS_DATA.find(c=>c.id===p.clientId)||{};
+      const urgent = p.daysToC <= 60;
+      html += `<div class="alert-card ${urgent?'alert-red':'alert-teal'}">
+        <div class="row">
+          <div class="col">
+            <div class="name" style="font-size:14px">${p.client}</div>
+            <div class="sub">Policy ${p.polId} · ${fmt(p.ap)}/yr</div>
+            <div class="sub">CG Date: ${p.cgDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+            <div style="margin-top:4px">${tag('⚠ Singlife backdating — verify actual CG date','var(--amber)')}</div>
+          </div>
+          <div style="text-align:right">
+            <div class="badge" style="color:${urgent?'var(--red)':'var(--teal)'}">${p.daysToC}d</div>
+            <div class="sub">to CG</div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  // PREMIUMS DUE
+  if (premDue.length) {
+    html += `<div class="section-title">⚡ Premiums Due — Next 90 Days</div>`;
+    premDue.forEach(p => {
+      const key = p.polId;
+      const done = followedUp[key];
+      const urgent = p.daysToP <= 30;
+      html += `<div class="alert-card ${done?'followed-up':urgent?'alert-red':'alert-amber'}" id="prem_${key}">
+        <div class="row">
+          <div class="col" style="flex:1">
+            <div class="name" style="font-size:14px">${p.client}</div>
+            <div class="sub">${p.insurer} · ${p.product.length>28?p.product.substring(0,28)+'…':p.product}</div>
+            <div class="money" style="font-size:13px;margin-top:4px">${fmt(p.ap)}</div>
+            <div class="sub">Due: ${p.nextDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+            <div style="margin-top:6px">
+              <button class="action-btn ${done?'btn-ghost':'btn-teal'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUp('${key}')">
+                ${done?'✓ Followed Up':'Mark Followed Up'}
+              </button>
+            </div>
+          </div>
+          <div style="text-align:right;min-width:50px">
+            <div class="badge" style="color:${done?'var(--green)':urgent?'var(--red)':'var(--amber)'}">${done?'✓':p.daysToP+'d'}</div>
+          </div>
+        </div>
+      </div>`;
+    });
+  }
+
+  if (!bdayAlerts.length && !cgAlerts.length && !premDue.length) {
+    html += `<div class="empty">✅ All clear today — nothing urgent</div>`;
+  }
+
+  document.getElementById('tab-home').innerHTML = html;
+}
+
+function toggleFollowUp(key) {
+  followedUp[key] = !followedUp[key];
+  localStorage.setItem('sil_followedup', JSON.stringify(followedUp));
+  renderHome();
+}
+
+// ── CLIENTS ───────────────────────────────────────────────────────────────
+function renderClients() {
+  const cats = ['All','C1','C2','C3','C4'];
+  let html = `<div class="search-bar"><input class="search-input" placeholder="Search client..." oninput="clientSearch=this.value;renderClientList()" value="${clientSearch}"/></div>`;
+  html += `<div class="filter-scroll">${cats.map(c=>`<button class="filter-btn ${clientFilter===c?'active':''}" onclick="clientFilter='${c}';renderClients()">${c==='All'?'All':c+' ('+CLIENTS_DATA.filter(x=>x.cat===c).length+')'}</button>`).join('')}</div>`;
+  html += `<div id="clientList"></div>`;
+  document.getElementById('tab-clients').innerHTML = html;
+  renderClientList();
+}
+
+function renderClientList() {
+  const q = clientSearch.toLowerCase();
+  const list = CLIENTS_DATA.filter(c=>{
+    if (clientFilter!=='All'&&c.cat!==clientFilter) return false;
+    if (q&&!c.name.toLowerCase().includes(q)&&!c.id.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const bdays = list.map(c=>({...c,days:daysUntilBday(c.dob)})).sort((a,b)=>(b.days===null?-1:a.days===null?1:0)||(a.days-b.days));
+
+  let html = `<div class="sub" style="margin-bottom:8px">${list.length} clients</div>`;
+  list.forEach(c => {
+    const days = daysUntilBday(c.dob);
+    const bdayTag = days!==null&&days<=30 ? `${tag(days===0?'🎂 TODAY':`🎂 ${days}d`,days<=7?'var(--red)':'var(--amber)')}` : '';
+    html += `<div class="card card-tap" onclick="openClient('${c.id}')">
+      <div class="row">
+        <div class="col" style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <div class="name">${c.name}</div>
+            ${bdayTag}
+          </div>
+          <div class="sub" style="margin-top:3px">${c.id} · Age ${c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():' —'}</div>
+          <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
+            ${tag(c.cat,catColor(c.cat))}
+            ${tag(fmt(c.aum),'var(--gold)')}
+            ${POLICIES_DATA.filter(p=>p.clientId===c.id).map(p=>tag(p.insurer,insurerColor(p.insurer))).filter((v,i,a)=>a.findIndex(x=>x===v)===i).join('')}
+          </div>
+        </div>
+        <div style="color:var(--muted);font-size:18px">›</div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('clientList').innerHTML = html;
+}
+
+function openClient(id) {
+  const c = CLIENTS_DATA.find(x=>x.id===id);
+  if (!c) return;
+  const policies = POLICIES_DATA.filter(p=>p.clientId===id);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = daysUntilBday(c.dob);
+
+  document.getElementById('detailTitle').textContent = c.name;
+  document.getElementById('detailSub').textContent = `${c.id} · ${c.nationality||'—'} · ${c.dob?`DOB ${c.dob} · Age ${new Date().getFullYear()-new Date(c.dob).getFullYear()}`:'DOB unknown'}`;
+  document.getElementById('detailTags').innerHTML = [
+    tag(c.cat, catColor(c.cat)),
+    tag(fmt(c.aum)+' AUM','var(--gold)'),
+    days!==null&&days<=30?tag(days===0?'🎂 TODAY':`🎂 ${days}d`,days<=7?'var(--red)':'var(--amber)'):'',
+  ].filter(Boolean).join('');
+
+  let body = '';
+
+  // Contact actions
+  if (c.mobile) {
+    body += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <a href="tel:+65${c.mobile}" class="action-btn btn-teal" style="text-decoration:none">📞 Call</a>
+      <a href="https://wa.me/65${c.mobile}" class="action-btn btn-green" style="text-decoration:none">💬 WhatsApp</a>
+      ${c.email?`<a href="mailto:${c.email}" class="action-btn btn-ghost" style="text-decoration:none">✉️ Email</a>`:''}
+    </div>`;
+  }
+
+  // Info grid
+  body += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+    ${[['Mobile',c.mobile||'—'],['Email',c.email||'—'],['Gender',c.gender||'—'],['Nationality',c.nationality||'—'],['Address',c.address||'—'],['Area',c.area||'—']].map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:10px"><div class="sub">${k}</div><div style="font-size:12px;margin-top:2px;color:var(--text)">${v}</div></div>`).join('')}
+  </div>`;
+
+  // Policies
+  body += `<div class="section-title">Policies (${policies.length})</div>`;
+  policies.forEach(p => {
+    const fp = isFullyPaid(p);
+    const isCGProd = p.product.includes('Flexi Life Income II');
+    const cg = isCGProd ? cgDate(p.inception) : null;
+    const daysToC = cg ? Math.round((cg-today)/86400000) : null;
+    const next = fp || p.freq==='Single' ? null : nextPremiumDate(p.inception,p.freq);
+    const daysToP = next ? Math.round((next-today)/86400000) : null;
+    body += `<div class="policy-row" style="border-color:${insurerColor(p.insurer)}">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--text)">${p.insurer} — ${p.product}</div>
+          <div class="sub" style="margin-top:2px">Policy ${p.polId}</div>
+        </div>
+        ${tag(fp?'✓ Paid':p.status,'var(--green)')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
+        <div><div class="sub">Annual Premium</div><div class="money" style="font-size:13px">${fmt(p.ap)}</div></div>
+        ${p.sa?`<div><div class="sub">Sum Assured</div><div style="font-size:12px">${fmt(p.sa)}</div></div>`:''}
+        <div><div class="sub">Inception</div><div style="font-size:12px">${p.inception}</div></div>
+        <div><div class="sub">Frequency</div><div style="font-size:12px">${p.freq}</div></div>
+      </div>
+      ${isCGProd?`<div style="margin-top:8px;padding:6px 8px;background:#0a1520;border-radius:6px">
+        <div style="font-size:11px;color:${daysToC!==null&&daysToC<=0?'var(--green)':daysToC!==null&&daysToC<=180?'var(--amber)':'var(--muted)'}">
+          🛡 Capital Guarantee: ${cg?cg.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):''} 
+          ${daysToC!==null?daysToC<=0?'✓ Guaranteed':`(${daysToC} days)`:''} 
+          · <span style="color:var(--amber);font-size:10px">⚠ Verify backdated date</span>
+        </div>
+      </div>`:''}
+      ${daysToP!==null?`<div style="margin-top:6px;font-size:11px;color:${daysToP<=30?'var(--red)':'var(--amber)'}">
+        ⚡ Next premium: ${next.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} (${daysToP}d)
+      </div>`:''}
+    </div>`;
+  });
+
+  document.getElementById('detailBody').innerHTML = body;
+  document.getElementById('detailOverlay').classList.add('open');
+  document.getElementById('detailOverlay').scrollTop = 0;
+}
+
+function closeDetail() {
+  document.getElementById('detailOverlay').classList.remove('open');
+}
+
+// ── POLICIES ──────────────────────────────────────────────────────────────
+function renderPolicies() {
+  const insurers = ['All','Singlife','Income','FWD','Manulife'];
+  let html = `<div class="search-bar"><input class="search-input" placeholder="Search client or policy..." oninput="polSearch=this.value;renderPolList()" value="${polSearch}"/></div>`;
+  html += `<div class="filter-scroll">${insurers.map(i=>`<button class="filter-btn ${polFilter===i?'active':''}" onclick="polFilter='${i}';renderPolicies()">${i}</button>`).join('')}
+    <button class="filter-btn ${polFilter==='Due'?'active':''}" onclick="polFilter='Due';renderPolicies()">⚡ Due 90d</button>
+    <button class="filter-btn ${polFilter==='CG'?'active':''}" onclick="polFilter='CG';renderPolicies()">🛡 CG Soon</button>
+    <button class="filter-btn ${polFilter==='Paid'?'active':''}" onclick="polFilter='Paid';renderPolicies()">✓ Paid</button>
+  </div>`;
+  html += `<div id="polList"></div>`;
+  document.getElementById('tab-policies').innerHTML = html;
+  renderPolList();
+}
+
+function renderPolList() {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const q = polSearch.toLowerCase();
+  let list = POLICIES_DATA.filter(p => {
+    if (q&&!p.client.toLowerCase().includes(q)&&!p.polId.toLowerCase().includes(q)&&!p.product.toLowerCase().includes(q)) return false;
+    if (polFilter==='All') return true;
+    if (['Singlife','Income','FWD','Manulife'].includes(polFilter)) return p.insurer===polFilter;
+    if (polFilter==='Paid') return isFullyPaid(p);
+    if (polFilter==='Due') { const next=nextPremiumDate(p.inception,p.freq); if(!next)return false; const d=Math.round((next-today)/86400000); return d>0&&d<=90; }
+    if (polFilter==='CG') { if(!p.product.includes('Flexi Life Income II'))return false; const d=Math.round((cgDate(p.inception)-today)/86400000); return d>0&&d<=180; }
+    return true;
+  });
+
+  let html = `<div class="sub" style="margin-bottom:8px">${list.length} policies</div>`;
+  list.forEach(p => {
+    const fp = isFullyPaid(p);
+    const isCG = p.product.includes('Flexi Life Income II');
+    const next = !fp&&p.freq!=='Single' ? nextPremiumDate(p.inception,p.freq) : null;
+    const daysToP = next ? Math.round((next-today)/86400000) : null;
+    const daysToC = isCG ? Math.round((cgDate(p.inception)-today)/86400000) : null;
+    html += `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div class="name" style="font-size:14px;cursor:pointer" onclick="openClient('${p.clientId}')">${p.client} ›</div>
+          <div class="sub" style="margin-top:2px">${p.insurer} · ${p.polId}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${p.product}</div>
+        </div>
+        ${tag(fp?'✓ Paid':p.status, fp?'var(--green)':'var(--teal)')}
+      </div>
+      <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;align-items:center">
+        <div class="money" style="font-size:13px">${fmt(p.ap)}${p.freq==='Single'?'':'/yr'}</div>
+        ${daysToP!==null?`<span style="font-size:11px;color:${daysToP<=30?'var(--red)':'var(--amber)'}">⚡ ${daysToP}d to premium</span>`:''}
+        ${isCG&&daysToC!==null?`<span style="font-size:11px;color:${daysToC<=0?'var(--green)':daysToC<=60?'var(--red)':'var(--amber)'}">🛡 ${daysToC<=0?'CG ✓':daysToC+'d to CG'}</span>`:''}
+      </div>
+      ${daysToP!==null&&daysToP<=90?`<div style="margin-top:8px"><button class="action-btn ${followedUp[p.polId]?'btn-ghost':'btn-amber'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUpPol('${p.polId}');event.stopPropagation()">
+        ${followedUp[p.polId]?'✓ Followed Up':'Mark Followed Up'}
+      </button></div>`:''}
+    </div>`;
+  });
+  document.getElementById('polList').innerHTML = html;
+}
+
+function toggleFollowUpPol(key) {
+  followedUp[key] = !followedUp[key];
+  localStorage.setItem('sil_followedup', JSON.stringify(followedUp));
+  renderPolList();
+}
+
+// ── COLLABS ───────────────────────────────────────────────────────────────
+function renderCollabs() {
+  const types = ['All','Lawyer','Banker','Accountant','Associate','Network','Referral'];
+  const typeColors = {Lawyer:'var(--purple)',Banker:'var(--teal)',Accountant:'var(--amber)',Associate:'var(--blue)',Network:'var(--green)',Referral:'var(--orange)'};
+  let html = `<div class="search-bar"><input class="search-input" placeholder="Search collab..." oninput="collabSearch=this.value;renderCollabList()" value="${collabSearch}"/></div>`;
+  html += `<div class="filter-scroll">${types.map(t=>`<button class="filter-btn ${collabFilter===t?'active':''}" onclick="collabFilter='${t}';renderCollabs()">${t}</button>`).join('')}
+    <button class="filter-btn ${collabFilter==='SG'?'active':''}" onclick="collabFilter='SG';renderCollabs()">🇸🇬 SG</button>
+    <button class="filter-btn ${collabFilter==='BKK'?'active':''}" onclick="collabFilter='BKK';renderCollabs()">🇹🇭 BKK</button>
+  </div>`;
+  html += `<div id="collabList"></div>`;
+  document.getElementById('tab-collabs').innerHTML = html;
+  renderCollabList();
+}
+
+function renderCollabList() {
+  const typeColors = {Lawyer:'var(--purple)',Banker:'var(--teal)',Accountant:'var(--amber)',Associate:'var(--blue)',Network:'var(--green)',Referral:'var(--orange)'};
+  const q = collabSearch.toLowerCase();
+  const list = COLLABS_DATA.filter(c => {
+    if (q&&!c.name.toLowerCase().includes(q)) return false;
+    if (collabFilter==='All') return true;
+    if (collabFilter==='SG') return c.loc.includes('SG');
+    if (collabFilter==='BKK') return c.loc.includes('BKK');
+    return c.type===collabFilter;
+  });
+
+  let html = `<div class="sub" style="margin-bottom:8px">${list.length} collabs</div>`;
+  list.forEach(c => {
+    html += `<div class="card">
+      <div class="row" style="align-items:flex-start">
+        <div class="col" style="flex:1;min-width:0">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+            <div class="name" style="font-size:14px">${c.name}</div>
+          </div>
+          <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">
+            ${tag(c.type,typeColors[c.type]||'var(--muted)')}
+            ${tag(c.loc,'var(--muted)')}
+            ${c.met?tag('Met '+new Date(c.met).toLocaleDateString('en-GB',{day:'numeric',month:'short'}),'var(--blue)'):''}
+          </div>
+          <div class="sub" style="margin-top:6px;font-size:11px">${c.summary}</div>
+          <div style="margin-top:6px;padding:6px 8px;background:#0a1520;border-radius:6px;border-left:2px solid var(--amber)">
+            <div style="font-size:11px;color:var(--amber)">→ ${c.action}</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+  document.getElementById('collabList').innerHTML = html;
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────────────────
+function renderDashboard() {
+  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
+  const cats = {C1:0,C2:0,C3:0,C4:0};
+  CLIENTS_DATA.forEach(c=>cats[c.cat]++);
+  const insurerAP = {};
+  POLICIES_DATA.forEach(p=>{ insurerAP[p.insurer]=(insurerAP[p.insurer]||0)+p.ap; });
+
+  let html = `<div class="section-title">Overview</div>
+  <div class="grid-2">
+    ${[['Total AUM','SGD '+fmtK(totalAUM),'var(--gold)'],
+       ['Clients','59','var(--teal)'],
+       ['Policies',POLICIES_DATA.length+'','var(--purple)'],
+       ['Collabs',COLLABS_DATA.length+'','var(--blue)'],
+       ['Fully Paid',POLICIES_DATA.filter(p=>isFullyPaid(p)).length+'','var(--green)'],
+       ['C1 Clients',cats.C1+'','var(--purple)']
+    ].map(([l,v,col])=>`<div class="stat-box"><div class="badge" style="color:${col}">${v}</div><div class="sub" style="margin-top:2px">${l}</div></div>`).join('')}
+  </div>
+
+  <div class="section-title">Client Category</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+    ${[['C1','>$200k',cats.C1,'var(--purple)'],['C2','>$100k',cats.C2,'var(--teal)'],['C3','>$50k',cats.C3,'var(--amber)'],['C4','Rest',cats.C4,'var(--muted)']].map(([c,desc,n,col])=>`
+      <div style="background:var(--surface);border:1px solid ${col}33;border-radius:10px;padding:12px 16px;flex:1;min-width:80px;text-align:center">
+        <div class="badge" style="color:${col}">${n}</div>
+        <div style="color:${col};font-size:12px;font-weight:700;margin-top:2px">${c}</div>
+        <div class="sub" style="font-size:10px">${desc}</div>
+      </div>`).join('')}
+  </div>
+
+  <div class="section-title">By Insurer</div>
+  <div style="margin-bottom:16px">
+    ${Object.entries(insurerAP).map(([ins,ap])=>`
+      <div class="card" style="margin-bottom:6px;padding:10px 14px">
+        <div class="row">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:4px;height:28px;background:${insurerColor(ins)};border-radius:2px"></div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${ins}</div>
+              <div class="sub">${POLICIES_DATA.filter(p=>p.insurer===ins).length} policies · ${CLIENTS_DATA.filter(c=>POLICIES_DATA.some(p=>p.clientId===c.id&&p.insurer===ins)).length} clients</div>
+            </div>
+          </div>
+          <div class="money" style="font-size:13px">SGD ${fmtK(ap)}</div>
+        </div>
+      </div>`).join('')}
+  </div>
+
+  <div class="section-title">Product Types (Extensible)</div>
+  <div class="card" style="border-color:var(--teal)33">
+    <div style="font-size:12px;color:var(--muted);line-height:1.8">
+      Current: Singlife · Income · FWD · Manulife<br>
+      <span style="color:var(--teal)">Ready to add:</span> iFast Global Bank · UOB Kay Hian Structured Notes · iFast Global Trust · Precepts Trustee<br>
+      <span style="color:var(--blue)">Future:</span> Portfolio Analysis · Holdings · Performance Tracking
+    </div>
+  </div>
+
+  <div class="section-title">Google Sheets Live Sync</div>
+  <div class="card" style="border-color:var(--teal)33">
+    <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
+      Connected via Google Apps Script — Sheet stays <span style="color:var(--green)">private</span><br>
+      Last sync: <span style="color:var(--teal)" id="dashLastSync">${lastSyncTime ? lastSyncTime.toLocaleTimeString('en-SG') : 'Not yet synced'}</span><br>
+      <span style="font-size:10px">Data updates automatically when you tap ↻ Sync in the header</span>
+    </div>
+    <button class="action-btn btn-teal" style="font-size:12px" onclick="syncData()">↻ Sync Now</button>
+  </div>`;
+
+  document.getElementById('tab-dashboard').innerHTML = html;
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+renderHome();
+// Auto-sync on load
+syncData();
+</script>
+</body>
+</html>
