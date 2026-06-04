@@ -170,172 +170,10 @@
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWYJx9CVqe-oI1DQFp1xuS_9QDooXr0QHHCFBQgSAn3x6vIMiupRSaizBo0Y6GNqXe7Q/exec?token=silnetwork2024sc';
 let lastSyncTime = null;
 
-// ── EMBEDDED DATA (source of truth until Sheet API connected) ─────────────
-const CLIENTS_DATA = [
-  {id:"SC-0001",name:"Ang Chong Leong",dob:"1969-02-19",mobile:"91644919",email:"clang13@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:151216,cat:"C2"},
-  {id:"SC-0002",name:"Audrey Felicitas Cunliffe",dob:"1969-05-09",mobile:"96875641",email:"audrey.cunliffe@gmail.com",address:"",area:"",nationality:"India",gender:"Female",aum:91433,cat:"C3"},
-  {id:"SC-0003",name:"Cecilia Ng Shau Ching",dob:"1970-02-24",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:40000,cat:"C4"},
-  {id:"SC-0004",name:"Chan Ho Keong",dob:"1973-05-29",mobile:"98332567",email:"chanhokeong@yahoo.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:127490,cat:"C2"},
-  {id:"SC-0005",name:"Chan May Li Maria",dob:"1963-07-06",mobile:"80113069",email:"pietraconsultants@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:90855,cat:"C3"},
-  {id:"SC-0006",name:"Chan Yew Kong",dob:"1964-10-01",mobile:"96507524",email:"chanyk_andy@outlook.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:118351,cat:"C2"},
-  {id:"SC-0007",name:"Chay Chow Ming",dob:"1972-09-22",mobile:"88751550",email:"changyishi1@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:105073,cat:"C2"},
-  {id:"SC-0008",name:"Chee Mun Hoe",dob:"1985-03-02",mobile:"",email:"",address:"",area:"",nationality:"",gender:"",aum:50000,cat:"C3"},
-  {id:"SC-0009",name:"Chew Lay Chin",dob:"1954-06-20",mobile:"98388774",email:"chewchristina@ymail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:151258,cat:"C2"},
-  {id:"SC-0010",name:"Chew Piek Wee",dob:"1974-07-25",mobile:"93832067",email:"piekwee@yahoo.co.uk",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:106535,cat:"C2"},
-  {id:"SC-0011",name:"Chia Kwan Yee Lilian",dob:"1972-10-31",mobile:"97106061",email:"liliancky@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:226659,cat:"C1"},
-  {id:"SC-0012",name:"Chong Angeline",dob:"1981-06-10",mobile:"90902105",email:"ihr_engel@hotmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:151344,cat:"C2"},
-  {id:"SC-0013",name:"Chong Mui Quee Rose",dob:"1968-11-27",mobile:"93294922",email:"rosecocochong@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:121325,cat:"C2"},
-  {id:"SC-0014",name:"Esther Tan Siew Lin",dob:"1963-11-17",mobile:"91179196",email:"esthertansl@yahoo.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:99459,cat:"C3"},
-  {id:"SC-0015",name:"Fitri Fatimah",dob:"1992-12-11",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:30000,cat:"C4"},
-  {id:"SC-0016",name:"Foo Teck Chong",dob:"1967-05-26",mobile:"93893337",email:"teckchong.fooftc@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Male",aum:150060,cat:"C2"},
-  {id:"SC-0017",name:"Ho Eng Kwang Daniel",dob:"1968-03-23",mobile:"97467375",email:"daniel.ho787@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:301171,cat:"C1"},
-  {id:"SC-0018",name:"Ku Foo Hong",dob:"1970-12-24",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:12000,cat:"C4"},
-  {id:"SC-0019",name:"Lam Soon Choy",dob:"1973-09-14",mobile:"96886554",email:"lamsoonchoy@yahoo.com",address:"",area:"",nationality:"Malaysia",gender:"Male",aum:342114,cat:"C1"},
-  {id:"SC-0020",name:"Lau Saw Kuan",dob:"1989-07-15",mobile:"98241502",email:"cheryllau07@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:3327,cat:"C4"},
-  {id:"SC-0021",name:"Ler Hui Min",dob:"1982-05-27",mobile:"91727604",email:"huiminler@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:100840,cat:"C2"},
-  {id:"SC-0022",name:"Lim Sock Lip",dob:"1964-05-21",mobile:"92368234",email:"socklip@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Male",aum:199997,cat:"C2"},
-  {id:"SC-0023",name:"Lin Loh Mei",dob:"1963-11-23",mobile:"81127100",email:"meilin_loh@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:90579,cat:"C3"},
-  {id:"SC-0024",name:"Liu Danjun",dob:"1980-12-28",mobile:"80676884",email:"nqq1024@outlook.com",address:"",area:"",nationality:"China",gender:"Male",aum:201763,cat:"C1"},
-  {id:"SC-0025",name:"Liu Yi Lei Lily",dob:"1982-11-07",mobile:"82331178",email:"liuyileilily@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:60745,cat:"C3"},
-  {id:"SC-0026",name:"Loh Kai Zhi",dob:"1986-11-29",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:30000,cat:"C4"},
-  {id:"SC-0027",name:"Loh Mei Lin",dob:"1963-11-23",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:12000,cat:"C4"},
-  {id:"SC-0028",name:"Loh Wen Jun",dob:"",mobile:"",email:"",address:"",area:"",nationality:"",gender:"",aum:57600,cat:"C3"},
-  {id:"SC-0029",name:"Low Sue May",dob:"1973-10-08",mobile:"96602224",email:"suemay7@yahoo.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:300234,cat:"C1"},
-  {id:"SC-0030",name:"Low Zhongyue",dob:"1987-02-17",mobile:"81183389",email:"zhongyue87@hotmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:103858,cat:"C2"},
-  {id:"SC-0031",name:"Malar San Myint",dob:"1980-01-10",mobile:"91880077",email:"myintmalarsan@gmail.com",address:"",area:"",nationality:"Myanmar",gender:"Female",aum:60812,cat:"C3"},
-  {id:"SC-0032",name:"Mithren Rajandran",dob:"1994-06-14",mobile:"98515214",email:"mithrenrajan@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:361173,cat:"C1"},
-  {id:"SC-0033",name:"Ng Siew Khim",dob:"1962-07-26",mobile:"97804388",email:"kymberly_ng@live.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:286967,cat:"C1"},
-  {id:"SC-0034",name:"Ng Yee Lee",dob:"1981-06-18",mobile:"91151829",email:"lyn_atomy@yahoo.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:240601,cat:"C1"},
-  {id:"SC-0035",name:"Nur Ashila Binte Abdul Halim",dob:"1989-09-10",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:20000,cat:"C4"},
-  {id:"SC-0036",name:"Oh Soon Keong",dob:"1957-06-25",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:50000,cat:"C3"},
-  {id:"SC-0037",name:"Ong Soon Seng",dob:"1964-02-29",mobile:"96287682",email:"garyongsoonseng@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:359882,cat:"C1"},
-  {id:"SC-0038",name:"Ong Yen Mui Sally",dob:"1975-08-05",mobile:"6585115756",email:"vinsal75@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:60979,cat:"C3"},
-  {id:"SC-0039",name:"Ong Yew Mey",dob:"1971-04-12",mobile:"93828281",email:"oyewmey@gmail.com",address:"",area:"",nationality:"Malaysia",gender:"Female",aum:40890,cat:"C4"},
-  {id:"SC-0040",name:"Osman bin Abdullah",dob:"1962-03-13",mobile:"98779448",email:"osmanabdullah7@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:60032,cat:"C3"},
-  {id:"SC-0041",name:"Quek Guan Liang",dob:"1958-03-23",mobile:"84990225",email:"glquek@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:91515,cat:"C3"},
-  {id:"SC-0042",name:"Quek Zhilong",dob:"1988-02-23",mobile:"98385764",email:"qk.zhilong@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:451100,cat:"C1"},
-  {id:"SC-0043",name:"Rethina Kumar Krishnamoorthy",dob:"1966-07-29",mobile:"91861810",email:"krethinakumar07@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:150326,cat:"C2"},
-  {id:"SC-0044",name:"Shariffideen Ridwan Salihin",dob:"1991-11-29",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:30000,cat:"C4"},
-  {id:"SC-0045",name:"She Aiqi",dob:"1982-02-06",mobile:"97944305",email:"tazperliz@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:88463,cat:"C3"},
-  {id:"SC-0046",name:"Siti Zaleha Binte Ismail",dob:"1979-01-01",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:6000,cat:"C4"},
-  {id:"SC-0047",name:"Tan Bin",dob:"1974-01-29",mobile:"90013516",email:"tiger40490@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:150899,cat:"C2"},
-  {id:"SC-0048",name:"Tan Keong Eng",dob:"1965-09-07",mobile:"81578303",email:"ketanke@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Male",aum:120531,cat:"C2"},
-  {id:"SC-0049",name:"Tan Kia Ting",dob:"1970-01-29",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Female",aum:40000,cat:"C4"},
-  {id:"SC-0050",name:"Tan Sey Kuang",dob:"1984-05-23",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:36000,cat:"C4"},
-  {id:"SC-0051",name:"Tan Sock Hiang",dob:"1968-08-03",mobile:"98262149",email:"toberhead01@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:250685,cat:"C1"},
-  {id:"SC-0052",name:"Tan York Han",dob:"1970-04-21",mobile:"91297001",email:"yorkhan21@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Male",aum:61335,cat:"C3"},
-  {id:"SC-0053",name:"Tey Kai Wan",dob:"1959-07-12",mobile:"98586011",email:"teykw8@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:75543,cat:"C3"},
-  {id:"SC-0054",name:"Viriyasaksathian Boonyarat",dob:"1986-01-13",mobile:"82895435",email:"boonyarat.v@gmail.com",address:"",area:"",nationality:"Thailand",gender:"Female",aum:60549,cat:"C3"},
-  {id:"SC-0055",name:"Wee Geok Tin",dob:"1966-05-26",mobile:"97233228",email:"jennywee66@yahoo.com.sg",address:"",area:"",nationality:"Singapore",gender:"Female",aum:118139,cat:"C2"},
-  {id:"SC-0056",name:"Wu Wenqing Arthur",dob:"1984-10-25",mobile:"94591022",email:"wenart@hotmail.com",address:"",area:"",nationality:"Singapore",gender:"Male",aum:301620,cat:"C1"},
-  {id:"SC-0057",name:"Yap Shao Kuan Kevin",dob:"",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:35000,cat:"C4"},
-  {id:"SC-0058",name:"Zaharah bte Sarmani",dob:"1967-01-28",mobile:"90703584",email:"harahaz01@gmail.com",address:"",area:"",nationality:"Singapore",gender:"Female",aum:80194,cat:"C3"},
-  {id:"SC-0059",name:"Zhang Tie",dob:"",mobile:"",email:"",address:"",area:"",nationality:"",gender:"Male",aum:166621,cat:"C2"},
-];
-
-const POLICIES_DATA = [
-  {polId:"83091660",clientId:"SC-0001",client:"Ang Chong Leong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-30",freq:"Yearly",ap:50405.5,sa:86000,maxPay:3},
-  {polId:"82965204",clientId:"SC-0002",client:"Audrey Felicitas Cunliffe",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-26",freq:"Yearly",ap:30477.75,sa:52000,maxPay:3},
-  {polId:"1814851772",clientId:"SC-0003",client:"Cecilia Ng Shau Ching",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-05-07",freq:"Yearly",ap:10000,sa:10100,maxPay:null},
-  {polId:"80541194",clientId:"SC-0003",client:"Cecilia Ng Shau Ching",insurer:"FWD",product:"FWD Invest Flexi Elite",status:"In Force",inception:"2025-08-01",freq:"Yearly",ap:20000,sa:0,maxPay:null},
-  {polId:"83691135",clientId:"SC-0004",client:"Chan Ho Keong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2025-07-22",freq:"Yearly",ap:100490.25,sa:174000,maxPay:3},
-  {polId:"1814915986",clientId:"SC-0004",client:"Chan Ho Keong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-18",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
-  {polId:"80591225",clientId:"SC-0004",client:"Chan Ho Keong",insurer:"FWD",product:"FWD Invest Flexi Elite",status:"In Force",inception:"2025-10-27",freq:"Yearly",ap:15000,sa:0,maxPay:null},
-  {polId:"83092371",clientId:"SC-0005",client:"Chan May Li Maria",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-26",freq:"Yearly",ap:30284.85,sa:51000,maxPay:3},
-  {polId:"82966045",clientId:"SC-0006",client:"Chan Yew Kong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-27",freq:"Yearly",ap:35450.4,sa:60000,maxPay:3},
-  {polId:"1814928992",clientId:"SC-0006",client:"Chan Yew Kong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-26",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
-  {polId:"83238539",clientId:"SC-0007",client:"Chay Chow Ming",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-31",freq:"Yearly",ap:35024.4,sa:60000,maxPay:3},
-  {polId:"80498331",clientId:"SC-0008",client:"Chee Mun Hoe",insurer:"FWD",product:"FWD Wealth Gen",status:"In Force",inception:"2025-06-09",freq:"Yearly",ap:50000,sa:100000,maxPay:null},
-  {polId:"83043276",clientId:"SC-0009",client:"Chew Lay Chin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-25",freq:"Yearly",ap:50419.35,sa:82000,maxPay:3},
-  {polId:"83125344",clientId:"SC-0010",client:"Chew Piek Wee",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-24",freq:"Yearly",ap:35511.8,sa:61000,maxPay:3},
-  {polId:"83325954",clientId:"SC-0011",client:"Chia Kwan Yee Lilian",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-03-30",freq:"Yearly",ap:75552.95,sa:131000,maxPay:3},
-  {polId:"83128517",clientId:"SC-0012",client:"Chong Angeline",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-27",freq:"Yearly",ap:50447.85,sa:87000,maxPay:3},
-  {polId:"83049256",clientId:"SC-0013",client:"Chong Mui Quee Rose",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-28",freq:"Yearly",ap:40441.6,sa:69000,maxPay:3},
-  {polId:"82898237",clientId:"SC-0014",client:"Esther Tan Siew Lin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-05-17",freq:"Yearly",ap:33153.15,sa:56000,maxPay:3},
-  {polId:"1814575080",clientId:"SC-0015",client:"Fitri Fatimah",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2024-10-22",freq:"Monthly",ap:15000,sa:17675,maxPay:null},
-  {polId:"82985287",clientId:"SC-0016",client:"Foo Teck Chong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-19",freq:"Yearly",ap:50019.95,sa:85000,maxPay:3},
-  {polId:"83134814",clientId:"SC-0017",client:"Ho Eng Kwang Daniel",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-12-01",freq:"Yearly",ap:100390.2,sa:173000,maxPay:3},
-  {polId:"1814912985",clientId:"SC-0018",client:"Ku Foo Hong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-18",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
-  {polId:"83235039",clientId:"SC-0019",client:"Lam Soon Choy",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-29",freq:"Yearly",ap:114038.1,sa:198000,maxPay:3},
-  {polId:"G2563411",clientId:"SC-0020",client:"Lau Saw Kuan",insurer:"Singlife",product:"Singlife CareShield Standard",status:"In Force",inception:"2025-02-21",freq:"Yearly",ap:1663.34,sa:7000,maxPay:null},
-  {polId:"83310028",clientId:"SC-0021",client:"Ler Hui Min",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-03-19",freq:"Yearly",ap:33613.35,sa:58000,maxPay:3},
-  {polId:"82894976",clientId:"SC-0022",client:"Lim Sock Lip",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-05-16",freq:"Single",ap:49997.1,sa:30000,maxPay:1},
-  {polId:"1452328044",clientId:"SC-0022",client:"Lim Sock Lip",insurer:"Manulife",product:"Manulife InvestReady III",status:"Premium Paying",inception:"2023-11-29",freq:"Yearly",ap:50000,sa:0,maxPay:null},
-  {polId:"82928735",clientId:"SC-0023",client:"Lin Loh Mei",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-06-15",freq:"Yearly",ap:30193.05,sa:51000,maxPay:3},
-  {polId:"1452328101",clientId:"SC-0028",client:"Loh Wen Jun",insurer:"Manulife",product:"Manulife InvestReady III",status:"Premium Paying",inception:"2023-12-26",freq:"Yearly",ap:19200,sa:0,maxPay:null},
-  {polId:"83500317",clientId:"SC-0024",client:"Liu Danjun",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-08-08",freq:"Yearly",ap:100881.45,sa:176000,maxPay:3},
-  {polId:"83235491",clientId:"SC-0025",client:"Liu Yi Lei Lily",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-29",freq:"Yearly",ap:20248.4,sa:34000,maxPay:3},
-  {polId:"1814940149",clientId:"SC-0026",client:"Loh Kai Zhi",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2025-06-30",freq:"Yearly",ap:30000,sa:30300,maxPay:null},
-  {polId:"1814975286",clientId:"SC-0027",client:"Loh Mei Lin",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-07-25",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
-  {polId:"83009012",clientId:"SC-0029",client:"Low Sue May",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-12",freq:"Yearly",ap:100077.85,sa:174000,maxPay:3},
-  {polId:"82875672",clientId:"SC-0030",client:"Low Zhongyue",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-23",freq:"Yearly",ap:34619.4,sa:60000,maxPay:3},
-  {polId:"82966219",clientId:"SC-0031",client:"Malar San Myint",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-27",freq:"Yearly",ap:20270.5,sa:34000,maxPay:3},
-  {polId:"83083094",clientId:"SC-0032",client:"Mithren Rajandran",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-30",freq:"Yearly",ap:40079.9,sa:70000,maxPay:3},
-  {polId:"83083105",clientId:"SC-0032",client:"Mithren Rajandran",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-10-30",freq:"Yearly",ap:80310.95,sa:142000,maxPay:3},
-  {polId:"83022855",clientId:"SC-0033",client:"Ng Siew Khim",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-15",freq:"Yearly",ap:20183.5,sa:33000,maxPay:3},
-  {polId:"83024084",clientId:"SC-0033",client:"Ng Siew Khim",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-09-15",freq:"Yearly",ap:75472.2,sa:133000,maxPay:3},
-  {polId:"82983005",clientId:"SC-0034",client:"Ng Yee Lee",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-16",freq:"Yearly",ap:80200.4,sa:140000,maxPay:3},
-  {polId:"1814751982",clientId:"SC-0035",client:"Nur Ashila Binte Abdul Halim",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2025-02-28",freq:"Yearly",ap:10000,sa:10100,maxPay:null},
-  {polId:"1814580438",clientId:"SC-0036",client:"Oh Soon Keong",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2024-10-18",freq:"Yearly",ap:25000,sa:50500,maxPay:null},
-  {polId:"82991266",clientId:"SC-0037",client:"Ong Soon Seng",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-26",freq:"Yearly",ap:119960.65,sa:207000,maxPay:3},
-  {polId:"82981124",clientId:"SC-0038",client:"Ong Yen Mui Sally",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-14",freq:"Yearly",ap:20326.25,sa:34000,maxPay:3},
-  {polId:"83560499",clientId:"SC-0039",client:"Ong Yew Mey",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-09-26",freq:"Yearly",ap:20444.9,sa:34000,maxPay:3},
-  {polId:"07132487",clientId:"SC-0040",client:"Osman bin Abdullah",insurer:"Singlife",product:"MyLifeIncome II",status:"In Force",inception:"2021-06-14",freq:"Single",ap:60032.4,sa:40000,maxPay:1},
-  {polId:"83329767",clientId:"SC-0041",client:"Quek Guan Liang",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-04-03",freq:"Yearly",ap:30504.95,sa:49000,maxPay:3},
-  {polId:"83481417",clientId:"SC-0042",client:"Quek Zhilong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-07-17",freq:"Yearly",ap:75238.7,sa:132000,maxPay:3},
-  {polId:"83224062",clientId:"SC-0042",client:"Quek Zhilong",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-01-22",freq:"Yearly",ap:100207.4,sa:176000,maxPay:3},
-  {polId:"83458034",clientId:"SC-0043",client:"Rethina Kumar Krishnamoorthy",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-06-26",freq:"Yearly",ap:75163.15,sa:129000,maxPay:3},
-  {polId:"1008032121",clientId:"SC-0044",client:"Shariffideen Ridwan Salihin",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-04-09",freq:"Yearly",ap:15000,sa:15150,maxPay:null},
-  {polId:"83456037",clientId:"SC-0045",client:"She Aiqi",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-06-24",freq:"Yearly",ap:25026.15,sa:42000,maxPay:3},
-  {polId:"07088607",clientId:"SC-0045",client:"She Aiqi",insurer:"Singlife",product:"MyLifeIncome II",status:"In Force",inception:"2020-12-17",freq:"Single",ap:38410.5,sa:25000,maxPay:1},
-  {polId:"1815009094",clientId:"SC-0046",client:"Siti Zaleha Binte Ismail",insurer:"Income",product:"Invest Flex (VS1)",status:"Inforce",inception:"2025-09-23",freq:"Yearly",ap:6000,sa:6060,maxPay:null},
-  {polId:"83540494",clientId:"SC-0047",client:"Tan Bin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-09-13",freq:"Yearly",ap:75449.45,sa:131000,maxPay:3},
-  {polId:"83115006",clientId:"SC-0048",client:"Tan Keong Eng",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-11-15",freq:"Yearly",ap:40177.15,sa:68000,maxPay:3},
-  {polId:"1814851736",clientId:"SC-0049",client:"Tan Kia Ting",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-05-07",freq:"Yearly",ap:10000,sa:10100,maxPay:null},
-  {polId:"80541110",clientId:"SC-0049",client:"Tan Kia Ting",insurer:"FWD",product:"FWD Invest Flexi Elite",status:"In Force",inception:"2025-07-31",freq:"Yearly",ap:20000,sa:0,maxPay:null},
-  {polId:"1814587973",clientId:"SC-0050",client:"Tan Sey Kuang",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2024-10-23",freq:"Yearly",ap:18000,sa:36360,maxPay:null},
-  {polId:"83279134",clientId:"SC-0051",client:"Tan Sock Hiang",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-02-29",freq:"Yearly",ap:83561.8,sa:144000,maxPay:3},
-  {polId:"82974957",clientId:"SC-0052",client:"Tan York Han",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-05",freq:"Yearly",ap:20444.9,sa:34000,maxPay:3},
-  {polId:"83789415",clientId:"SC-0053",client:"Tey Kai Wan",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2025-09-08",freq:"Yearly",ap:75543.3,sa:126000,maxPay:3},
-  {polId:"82972122",clientId:"SC-0054",client:"Viriyasaksathian Boonyarat",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-08-02",freq:"Yearly",ap:20183.1,sa:34000,maxPay:3},
-  {polId:"82965929",clientId:"SC-0055",client:"Wee Geok Tin",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-27",freq:"Yearly",ap:35379.6,sa:60000,maxPay:3},
-  {polId:"1814929033",clientId:"SC-0055",client:"Wee Geok Tin",insurer:"Income",product:"Invest Flex Vantage (VS2)",status:"Inforce",inception:"2025-06-26",freq:"Yearly",ap:12000,sa:12120,maxPay:null},
-  {polId:"82960691",clientId:"SC-0056",client:"Wu Wenqing Arthur",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2023-07-28",freq:"Yearly",ap:100540,sa:176000,maxPay:3},
-  {polId:"1007966066",clientId:"SC-0057",client:"Yap Shao Kuan Kevin",insurer:"Income",product:"Gro Retire Flex Pro (GRME)",status:"Inforce",inception:"2023-10-03",freq:"Single",ap:35000.35,sa:0,maxPay:1},
-  {polId:"83489924",clientId:"SC-0058",client:"Zaharah bte Sarmani",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-07-24",freq:"Yearly",ap:40096.9,sa:68000,maxPay:3},
-  {polId:"83496838",clientId:"SC-0059",client:"Zhang Tie",insurer:"Singlife",product:"Singlife Flexi Life Income II",status:"In Force",inception:"2024-08-04",freq:"Yearly",ap:83310.55,sa:146000,maxPay:3},
-];
-
-const COLLABS_DATA = [
-  {id:"CO-001",name:"Edward Thiravej",loc:"BKK, TH",type:"Lawyer",met:"2026-05-21",summary:"International Law. Joint legacy planning talks.",action:"Organise joint talk"},
-  {id:"CO-002",name:"Ploy / Mod (PK Nishimura)",loc:"BKK, TH",type:"Lawyer",met:"2026-05-22",summary:"PPLI & Family Office. Link with Alton.",action:"Follow up joint talks"},
-  {id:"CO-003",name:"Jonathan C. Blaine",loc:"BKK, TH",type:"Lawyer",met:"2026-05-13",summary:"Will bring you in for client chats in BKK.",action:"Schedule BKK visit"},
-  {id:"CO-004",name:"Laurent Benoit",loc:"BKK, TH",type:"Lawyer",met:"2026-05-15",summary:"Monaco HNW clients. Family office shift to SG.",action:"Arrange lunch"},
-  {id:"CO-005",name:"Greg",loc:"BKK, TH",type:"Lawyer",met:"2026-04-17",summary:"Trust setup SG. CAMCHAM chairman.",action:"Plan CAMCHAM talk"},
-  {id:"CO-006",name:"Rasa Taokaew",loc:"BKK, TH",type:"Lawyer",met:"2026-05-23",summary:"Family law office Pichit. New to trust.",action:"Send trust materials"},
-  {id:"CO-007",name:"Julio Pingarron",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Receptive to buy-sell. Med-sized biz.",action:"Follow up buy-sell"},
-  {id:"CO-008",name:"Shota (Rajah & Tann TH)",loc:"BKK, TH",type:"Lawyer",met:"2026-05-21",summary:"Receptive buy-sell. Will keep you in mind.",action:"Nurture periodically"},
-  {id:"CO-009",name:"Mikhail Borodin",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Sensitive — Russian clients.",action:"Keep warm, low pressure"},
-  {id:"CO-010",name:"Yong Rachapol Sirikulchit",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Watson Farley & Williams.",action:"Initial follow up"},
-  {id:"CO-011",name:"Molthida / Pear (WFW)",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Watson Farley & Williams.",action:"Initial follow up"},
-  {id:"CO-012",name:"Ryan Crowley",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Roughly knows what you do.",action:"Explore collab"},
-  {id:"CO-013",name:"Som",loc:"BKK, TH",type:"Lawyer",met:"2026-04-17",summary:"Buy-sell agreement insurance.",action:"Highlight case studies"},
-  {id:"CO-014",name:"Kris & Gf",loc:"BKK, TH",type:"Lawyer",met:"",summary:"Friendship established.",action:"Propose collab"},
-  {id:"CO-015",name:"Jummy (SME Acc)",loc:"BKK, TH",type:"Accountant",met:"",summary:"Busy May. Arrange chat.",action:"Arrange chat"},
-  {id:"CO-016",name:"Alton",loc:"SG",type:"Associate",met:"2026-04-29",summary:"Chatted a few times.",action:"Ask for employee benefit referrals"},
-  {id:"CO-017",name:"Shaun Teh (Citi IPB)",loc:"SG",type:"Banker",met:"2026-03-23",summary:"Potential collab. Min $350k.",action:"Follow up collab structure"},
-  {id:"CO-018",name:"Khun Oil (UOB PB)",loc:"SG/BKK",type:"Banker",met:"2026-04-08",summary:"TH tie-ups + rev sharing.",action:"Follow up post-BKK"},
-  {id:"CO-019",name:"Khun Bew (OCBC PPB)",loc:"SG/BKK",type:"Banker",met:"2026-04-21",summary:"Referrals + corp investment. Min $1m.",action:"Update on next BKK trip"},
-  {id:"CO-020",name:"Albert Savier (BOS)",loc:"SG",type:"Banker",met:"2026-04-09",summary:"Min AUM $5m. Property pledge.",action:"Identify mutual clients"},
-  {id:"CO-021",name:"Raymond Chew (BOS)",loc:"SG",type:"Banker",met:"2026-04-09",summary:"Japan citizenship / worldwide asset declaration.",action:"Follow up Japan angle"},
-  {id:"CO-022",name:"Khun May (TTB PB+)",loc:"BKK, TH",type:"Banker",met:"2026-03-19",summary:"Open to collab.",action:"Maintain — BKK visit"},
-  {id:"CO-023",name:"Pi O & Pi O+",loc:"HY, TH",type:"Network",met:"",summary:"Hat Yai client meetups.",action:"Plan Hat Yai trip"},
-  {id:"CO-024",name:"Grace Ng (OCBC Offshore)",loc:"SG",type:"Banker",met:"2026-03-23",summary:"New to offshore.",action:"Keep warm — educate"},
-  {id:"CO-025",name:"Tony Koe",loc:"SG",type:"Referral",met:"",summary:"Referred by Alton.",action:"Initial meeting"},
-  {id:"CO-026",name:"Mookie",loc:"TH",type:"Network",met:"",summary:"Met in Hat Yai flood.",action:"Keep in touch"},
-  {id:"CO-027",name:"Chen Shilun",loc:"SG",type:"Lawyer",met:"",summary:"Referred by Alton.",action:"Initial meeting"},
-  {id:"CO-028",name:"Chuan Sheng",loc:"MY",type:"Lawyer",met:"",summary:"KL/PG Lawyer, Chua Clan.",action:"Leverage Chua Clan connection"},
-];
+// ── DATA (populated exclusively via Google Sheet sync — no data stored here) ──
+let CLIENTS_DATA = [];
+let POLICIES_DATA = [];
+let COLLABS_DATA = [];
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let followedUp = JSON.parse(localStorage.getItem('sil_followedup') || '{}');
@@ -516,6 +354,18 @@ function renderTab(name) {
 
 // ── HOME ──────────────────────────────────────────────────────────────────
 function renderHome() {
+  if (!CLIENTS_DATA.length) {
+    document.getElementById('tab-home').innerHTML = `
+      <div style="text-align:center;padding:60px 24px">
+        <div style="font-size:40px;margin-bottom:16px">🔒</div>
+        <div style="color:var(--text);font-size:16px;font-weight:600;margin-bottom:8px">Syncing your data...</div>
+        <div style="color:var(--muted);font-size:13px;margin-bottom:24px">Connecting to your private Google Sheet</div>
+        <button class="action-btn btn-teal" onclick="syncData()">↻ Sync Now</button>
+      </div>`;
+    document.getElementById('hClientsCount').textContent = '—';
+    document.getElementById('hAUMTotal').textContent = '—';
+    return;
+  }
   const today = new Date(); today.setHours(0,0,0,0);
   const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days<=30).sort((a,b)=>a.days-b.days);
   const cgAlerts = POLICIES_DATA.filter(p=>p.product.includes('Flexi Life Income II')).map(p=>{
@@ -536,6 +386,7 @@ function renderHome() {
   document.getElementById('hCGAlert').textContent = cgAlerts.length ? `🛡 ${cgAlerts.length} CG alerts` : '';
   const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
   document.getElementById('hAUMTotal').textContent = 'SGD '+fmtK(totalAUM);
+  document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
 
   let html = '';
 
