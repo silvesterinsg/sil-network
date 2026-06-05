@@ -172,7 +172,7 @@
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWYJx9CVqe-oI1DQFp1xuS_9QDooXr0QHHCFBQgSAn3x6vIMiupRSaizBo0Y6GNqXe7Q/exec?token=silnetwork2024sc';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxE1K9K4KpkW6nsBnuc5KvAWtLkml9RXJVA8QTga9BzvzorB9ondpJXtsoxzyjc1MHbgQ/exec?token=silnetwork2024sc';
 let lastSyncTime = null;
 
 // ── DATA ──────────────────────────────────────────────────────────────────
@@ -252,29 +252,48 @@ async function syncData() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const raw = await r.json();
 
-    // ── Parse Clients (row 0=title, row 1=headers, row 2=note, rows 3+ = data)
-    // Columns: A=ClientID B=Name C=DOB D=Age E=Gender F=Nationality G=Mobile
-    //          H=Email I=Address J=Area K=Country L=C-Category M=TotalAUM
-    //          N=Notes O=LastContact P=NextAction Q=IG R=FB S=LinkedIn T=WhatsApp
+    // ── Parse Clients
+    // Google Sheets may return DOB as Date object or string
+    // Sheet structure: row 0=title, row 1=headers, row 2=note, rows 3+=data
+    function parseDOB(val) {
+      if (!val) return '';
+      if (val instanceof Date) {
+        const y = val.getFullYear(), m = String(val.getMonth()+1).padStart(2,'0'), d = String(val.getDate()).padStart(2,'0');
+        return `${y}-${m}-${d}`;
+      }
+      const s = String(val).trim();
+      // Already ISO format
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10);
+      // DD/MM/YYYY or MM/DD/YYYY
+      if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}/.test(s)) {
+        const parts = s.split(/[\/\-]/);
+        return `${parts[2]}-${parts[1].padStart(2,'0')}-${parts[0].padStart(2,'0')}`;
+      }
+      return s;
+    }
+
     if (raw.clients && raw.clients.length > 3) {
-      const rows = raw.clients.slice(3).filter(r => r[0] && r[1]);
+      // Find first data row by looking for SC- prefix
+      let dataStart = 3;
+      for (let i = 0; i < Math.min(6, raw.clients.length); i++) {
+        if (raw.clients[i][0] && String(raw.clients[i][0]).startsWith('SC-')) { dataStart = i; break; }
+      }
+      const rows = raw.clients.slice(dataStart).filter(r => r[0] && String(r[0]).startsWith('SC-'));
       CLIENTS_DATA.length = 0;
       rows.forEach(r => {
-        const dobRaw = r[2] ? String(r[2]).trim() : '';
-        const aum = parseFloat(String(r[12]).replace(/[^0-9.]/g,'')) || 0;
         CLIENTS_DATA.push({
           id:          String(r[0]).trim(),
-          name:        String(r[1]).trim(),
-          dob:         dobRaw,
+          name:        String(r[1]||'').trim(),
+          dob:         parseDOB(r[2]),
           age:         parseInt(r[3]) || null,
           gender:      String(r[4]||'').trim(),
           nationality: String(r[5]||'').trim(),
-          mobile:      String(r[6]||'').trim(),
+          mobile:      String(r[6]||'').replace(/\D/g,'').slice(-8),
           email:       String(r[7]||'').trim(),
           address:     String(r[8]||'').trim(),
           area:        String(r[9]||'').trim(),
-          aum:         aum,
-          cat:         aum>=200000?'C1':aum>=100000?'C2':aum>=50000?'C3':'C4',
+          aum:         0, // calculated from policies below
+          cat:         'C4',
           notes:       String(r[13]||'').trim(),
           lastContact: String(r[14]||'').trim(),
           nextAction:  String(r[15]||'').trim(),
@@ -286,16 +305,20 @@ async function syncData() {
       });
     }
 
-    // ── Parse Policies (row 0=title, row 1=headers, rows 2+ = data)
-    // Columns: A=PolicyID B=ClientID C=ClientName D=Insurer E=Product F=Status
-    //          G=Inception H=Freq I=AnnualPremium J=SumAssured K=PolicyAge
-    //          L=PaymentsMade M=MaxPayments N=FullyPaid O=CapitalGuaranteed
-    //          P=CGDate Q=DaysToCG R=NextPremiumDue
+    // ── Parse Policies
     if (raw.policies && raw.policies.length > 2) {
-      const rows = raw.policies.slice(2).filter(r => r[0] && r[1]);
+      let dataStart = 2;
+      for (let i = 0; i < Math.min(5, raw.policies.length); i++) {
+        const v = String(raw.policies[i][0]||'');
+        if (v && !v.includes('NETWORK') && !v.includes('Policy ID') && v !== '') { dataStart = i; break; }
+      }
+      const rows = raw.policies.slice(dataStart).filter(r => r[0] && r[1] && !String(r[0]).includes('NETWORK'));
       POLICIES_DATA.length = 0;
       rows.forEach(r => {
-        const maxP = parseInt(r[12]) || null;
+        const maxP = String(r[12]).trim();
+        const maxPNum = parseInt(maxP) || null;
+        const ap = parseFloat(String(r[8]).replace(/[^0-9.]/g,'')) || 0;
+        const sa = parseFloat(String(r[9]).replace(/[^0-9.]/g,'')) || 0;
         POLICIES_DATA.push({
           polId:     String(r[0]).trim(),
           clientId:  String(r[1]).trim(),
@@ -303,33 +326,35 @@ async function syncData() {
           insurer:   String(r[3]).trim(),
           product:   String(r[4]).trim(),
           status:    String(r[5]).trim(),
-          inception: String(r[6]||'').trim().substring(0,10),
+          inception: parseDOB(r[6]),
           freq:      String(r[7]).trim(),
-          ap:        parseFloat(String(r[8]).replace(/[^0-9.]/g,'')) || 0,
-          sa:        parseFloat(String(r[9]).replace(/[^0-9.]/g,'')) || 0,
-          maxPay:    maxP,
+          ap:        ap,
+          sa:        sa,
+          maxPay:    maxPNum,
         });
       });
     }
 
-    // ── Parse Collabs (row 0=title, row 1=headers, rows 2+ = data)
-    // Columns: A=ID B=Name C=Location D=Type E=FirstMet F=Summary G=NextAction
-    //          H=LastTouchpoint I=Platform J=Notes
+    // ── Parse Collabs
     if (raw.collabs && raw.collabs.length > 2) {
-      const rows = raw.collabs.slice(2).filter(r => r[0] && r[1]);
+      let dataStart = 2;
+      for (let i = 0; i < Math.min(5, raw.collabs.length); i++) {
+        if (raw.collabs[i][0] && String(raw.collabs[i][0]).startsWith('CO-')) { dataStart = i; break; }
+      }
+      const rows = raw.collabs.slice(dataStart).filter(r => r[0] && String(r[0]).startsWith('CO-'));
       COLLABS_DATA.length = 0;
       rows.forEach(r => {
         COLLABS_DATA.push({
-          id:      String(r[0]).trim(),
-          name:    String(r[1]).trim(),
-          loc:     String(r[2]||'').trim(),
-          type:    String(r[3]||'').trim(),
-          met:     String(r[4]||'').trim().substring(0,10),
-          summary: String(r[5]||'').trim(),
-          action:  String(r[6]||'').trim(),
-          lastTouch:String(r[7]||'').trim(),
-          platform: String(r[8]||'').trim(),
-          notes:   String(r[9]||'').trim(),
+          id:        String(r[0]).trim(),
+          name:      String(r[1]).trim(),
+          loc:       String(r[2]||'').trim(),
+          type:      String(r[3]||'').trim(),
+          met:       parseDOB(r[4]),
+          summary:   String(r[5]||'').trim(),
+          action:    String(r[6]||'').trim(),
+          lastTouch: String(r[7]||'').trim(),
+          platform:  String(r[8]||'').trim(),
+          notes:     String(r[9]||'').trim(),
         });
       });
     }
@@ -375,9 +400,18 @@ async function syncData() {
     el.style.color = 'var(--green)';
     renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
   } catch(e) {
-    el.innerHTML = '✗ Sync failed';
+    el.innerHTML = '✗ ' + e.message.substring(0,20);
     el.style.color = 'var(--red)';
     console.error('Sync error:', e);
+    // Show error in home tab
+    const homeTab = document.getElementById('tab-home');
+    if (homeTab) homeTab.innerHTML = `<div style="text-align:center;padding:40px 24px">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div style="color:var(--red);font-size:14px;font-weight:600;margin-bottom:8px">Sync Error</div>
+      <div style="color:var(--muted);font-size:12px;margin-bottom:4px">${e.message}</div>
+      <div style="color:var(--muted);font-size:11px;margin-bottom:20px">Check console for details</div>
+      <button class="action-btn btn-teal" onclick="syncData()">↻ Retry Sync</button>
+    </div>`;
   }
 }
 
