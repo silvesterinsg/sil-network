@@ -1,785 +1,1463 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sil Network</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap');
   :root {
-    --bg: #070e16; --surface: #0d1f2d; --surface2: #0f2535;
-    --border: #1e3448; --teal: #2a9d8f; --gold: #e9c46a;
-    --orange: #f4a261; --red: #e76f51; --purple: #a78bfa;
-    --green: #22c55e; --amber: #f59e0b; --blue: #60a5fa;
-    --text: #e8f4f0; --muted: #6b8fa3; --dim: #1e3448;
+    --navy: #0d1b2a; --teal: #1a7a6e; --gold: #c9a84c; --cream: #f5f0e8;
+    --slate: #4a5568; --light: #edf2f7; --danger: #e53e3e; --success: #38a169;
+    --warn: #d69e2e; --card: #fff; --border: #e2e8f0; --text: #1a202c;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; padding-bottom: 80px; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: #f0f4f8; color: var(--text); min-height: 100vh; }
+  
+  /* LAYOUT */
+  #app { display: flex; min-height: 100vh; }
+  #sidebar { width: 220px; background: var(--navy); color: #fff; display: flex; flex-direction: column; flex-shrink: 0; position: fixed; top: 0; left: 0; height: 100vh; overflow-y: auto; z-index: 100; }
+  #main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; }
+  #topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+  #content { padding: 24px; flex: 1; }
 
-  /* NAV */
-  .nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--surface); border-top: 1px solid var(--border); display: flex; z-index: 100; }
-  .nav-btn { flex: 1; padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; color: var(--muted); font-size: 10px; cursor: pointer; transition: color 0.15s; }
-  .nav-btn.active { color: var(--teal); }
-  .nav-btn svg { width: 22px; height: 22px; }
+  /* SIDEBAR */
+  .sidebar-logo { padding: 20px 16px 10px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .sidebar-logo h1 { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: var(--gold); }
+  .sidebar-logo p { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-top: 2px; }
+  .sidebar-section { padding: 8px 0; }
+  .sidebar-label { font-size: 0.65rem; font-weight: 600; letter-spacing: 0.1em; color: rgba(255,255,255,0.35); padding: 8px 16px 4px; text-transform: uppercase; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; cursor: pointer; font-size: 0.82rem; color: rgba(255,255,255,0.7); transition: all 0.15s; border-left: 3px solid transparent; }
+  .nav-item:hover { background: rgba(255,255,255,0.07); color: #fff; }
+  .nav-item.active { background: rgba(201,168,76,0.15); color: var(--gold); border-left-color: var(--gold); }
+  .nav-icon { width: 16px; text-align: center; font-size: 0.9rem; }
+  .badge { background: var(--danger); color: #fff; font-size: 0.65rem; border-radius: 10px; padding: 1px 6px; margin-left: auto; }
+  .badge-warn { background: var(--warn); }
 
-  /* HEADER */
-  .header { background: linear-gradient(135deg, var(--surface) 0%, #0a1a28 100%); border-bottom: 1px solid var(--border); padding: 16px 16px 12px; position: sticky; top: 0; z-index: 50; }
-  .header-top { display: flex; justify-content: space-between; align-items: flex-start; }
-  .header-label { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--teal); margin-bottom: 2px; }
-  .header-title { font-size: 22px; font-weight: 700; color: var(--text); }
-  .header-stats { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
-  .header-stat { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .header-stat span { color: var(--teal); font-weight: 600; }
-
-  /* TABS */
-  .tab { display: none; padding: 12px 16px; }
-  .tab.active { display: block; }
+  /* TOPBAR */
+  .topbar-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--navy); }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+  .btn { padding: 7px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; font-family: 'DM Sans', sans-serif; }
+  .btn-primary { background: var(--teal); color: #fff; }
+  .btn-primary:hover { background: #156559; }
+  .btn-gold { background: var(--gold); color: #fff; }
+  .btn-gold:hover { background: #b8943e; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--slate); }
+  .btn-outline:hover { border-color: var(--teal); color: var(--teal); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
 
   /* CARDS */
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px; margin-bottom: 10px; }
-  .card-tap { cursor: pointer; transition: border-color 0.15s; }
-  .card-tap:active { border-color: var(--teal); }
+  .card { background: var(--card); border-radius: 10px; border: 1px solid var(--border); padding: 20px; }
+  .card-sm { padding: 14px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  
+  /* STAT CARDS */
+  .stat-card { background: var(--card); border-radius: 10px; border: 1px solid var(--border); padding: 18px; }
+  .stat-label { font-size: 0.72rem; color: var(--slate); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+  .stat-value { font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--navy); margin: 4px 0; }
+  .stat-sub { font-size: 0.75rem; color: var(--slate); }
+  .stat-icon { font-size: 1.5rem; float: right; opacity: 0.4; }
 
-  /* ALERT CARDS */
-  .alert-card { border-radius: 10px; padding: 12px 14px; margin-bottom: 8px; border-left: 3px solid; }
-  .alert-red { background: #e76f5115; border-color: var(--red); }
-  .alert-amber { background: #f59e0b15; border-color: var(--amber); }
-  .alert-teal { background: #2a9d8f15; border-color: var(--teal); }
-  .alert-purple { background: #a78bfa15; border-color: var(--purple); }
+  /* TABLES */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  th { background: #f8fafc; color: var(--slate); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 10px 12px; border-bottom: 2px solid var(--border); text-align: left; white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: #f8fafc; }
+  tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.68rem; font-weight: 600; }
+  .tag-green { background: #c6f6d5; color: #276749; }
+  .tag-blue { background: #bee3f8; color: #2c5282; }
+  .tag-yellow { background: #fefcbf; color: #744210; }
+  .tag-red { background: #fed7d7; color: #9b2335; }
+  .tag-gray { background: #e2e8f0; color: #4a5568; }
+  .tag-gold { background: #fef3c7; color: #92400e; }
 
-  /* TAGS */
-  .tag { display: inline-flex; align-items: center; gap: 3px; border-radius: 4px; padding: 2px 7px; font-size: 10px; font-weight: 600; border: 1px solid; white-space: nowrap; }
+  /* ALERTS */
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 0.82rem; margin-bottom: 12px; display: flex; align-items: flex-start; gap: 10px; }
+  .alert-warn { background: #fffbeb; border: 1px solid #f6e05e; color: #744210; }
+  .alert-danger { background: #fff5f5; border: 1px solid #feb2b2; color: #9b2335; }
+  .alert-info { background: #ebf8ff; border: 1px solid #bee3f8; color: #2c5282; }
+  .alert-success { background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; }
 
-  /* SEARCH & FILTER */
-  .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
-  .search-input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 9px 12px; font-size: 14px; outline: none; }
-  .search-input::placeholder { color: var(--muted); }
-  .filter-scroll { display: flex; gap: 6px; overflow-x: auto; margin-bottom: 12px; padding-bottom: 4px; scrollbar-width: none; }
-  .filter-scroll::-webkit-scrollbar { display: none; }
-  .filter-btn { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 11px; cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-  .filter-btn.active { background: var(--teal); border-color: var(--teal); color: #fff; }
+  /* FORMS */
+  .form-group { margin-bottom: 14px; }
+  .form-label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--slate); margin-bottom: 5px; }
+  .form-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.83rem; font-family: 'DM Sans', sans-serif; transition: border-color 0.15s; background: #fff; }
+  .form-input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px rgba(26,122,110,0.1); }
+  .form-input::placeholder { color: #a0aec0; }
+  select.form-input { cursor: pointer; }
+  textarea.form-input { resize: vertical; min-height: 80px; }
 
-  /* CLIENT DETAIL */
-  .detail-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 200; overflow-y: auto; padding-bottom: 40px; }
-  .detail-overlay.open { display: block; }
-  .detail-header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px; position: sticky; top: 0; z-index: 10; }
-  .back-btn { display: flex; align-items: center; gap: 6px; color: var(--teal); font-size: 14px; cursor: pointer; border: none; background: none; margin-bottom: 10px; }
-  .policy-row { background: #060d14; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px; border-left: 3px solid var(--teal); }
+  /* SEARCH */
+  .search-bar { position: relative; }
+  .search-bar input { padding-left: 34px; }
+  .search-bar .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: #a0aec0; font-size: 0.9rem; }
 
-  /* ACTION BUTTONS */
-  .action-btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 16px; border-radius: 8px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .btn-teal { background: var(--teal); color: #fff; }
-  .btn-green { background: var(--green); color: #fff; }
-  .btn-amber { background: #f59e0b22; color: var(--amber); border: 1px solid var(--amber); }
-  .btn-red { background: #e76f5122; color: var(--red); border: 1px solid var(--red); }
-  .btn-ghost { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: var(--card); border-radius: 12px; width: 100%; max-width: 600px; max-height: 90vh; overflow-y: auto; }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; color: var(--navy); }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; gap: 8px; }
+  .modal-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--slate); }
 
-  /* MISC */
-  .section-title { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; margin-top: 18px; }
-  .section-title:first-child { margin-top: 0; }
-  .row { display: flex; justify-content: space-between; align-items: center; }
-  .col { display: flex; flex-direction: column; gap: 3px; }
-  .name { font-size: 15px; font-weight: 600; color: var(--text); }
-  .sub { font-size: 11px; color: var(--muted); }
-  .money { font-size: 14px; font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
-  .badge { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .divider { height: 1px; background: var(--border); margin: 12px 0; }
-  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
-  .pill { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-  .stat-box { background: var(--surface); border-radius: 10px; padding: 14px; border: 1px solid var(--border); }
-  .followed-up { opacity: 0.45; }
-  .followed-up .badge { color: var(--green) !important; }
+  /* PROFILE SIDE PANEL */
+  .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 900; }
+  .side-panel { position: fixed; right: 0; top: 0; height: 100vh; width: 480px; background: var(--card); z-index: 901; overflow-y: auto; box-shadow: -4px 0 20px rgba(0,0,0,0.1); }
+  .side-panel-header { background: var(--navy); color: #fff; padding: 24px; }
+  .side-panel-body { padding: 20px; }
+  .avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--gold); color: var(--navy); display: flex; align-items: center; justify-content: center; font-family: 'DM Serif Display', serif; font-size: 1.3rem; flex-shrink: 0; }
 
-  @media (min-width: 600px) {
-    body { max-width: 480px; margin: 0 auto; }
-    .header { border-radius: 0; }
+  /* NOTES */
+  .notes-thread { max-height: 200px; overflow-y: auto; margin-bottom: 10px; }
+  .note-entry { background: #f8fafc; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-size: 0.8rem; }
+  .note-meta { font-size: 0.68rem; color: var(--slate); margin-bottom: 3px; }
+
+  /* CHARTS */
+  .chart-container { position: relative; height: 180px; }
+
+  /* PIE LEGEND */
+  .pie-legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .pie-legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.75rem; }
+  .pie-dot { width: 10px; height: 10px; border-radius: 50%; }
+
+  /* TABS */
+  .tab-bar { display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+  .tab { padding: 10px 18px; font-size: 0.82rem; font-weight: 500; cursor: pointer; color: var(--slate); border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.15s; }
+  .tab.active { color: var(--teal); border-bottom-color: var(--teal); }
+  .tab:hover { color: var(--teal); }
+
+  /* LOADING */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--slate); gap: 10px; }
+  .spinner { width: 24px; height: 24px; border: 3px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* PIPELINE LOCK */
+  .lock-banner { background: linear-gradient(135deg, var(--navy), #1a3a5c); color: #fff; border-radius: 10px; padding: 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 16px; }
+  .lock-icon { font-size: 2rem; }
+  .lock-countdown { font-family: 'DM Serif Display', serif; font-size: 1.4rem; color: var(--gold); }
+
+  /* EXPORT BUTTON */
+  .export-fab { position: fixed; bottom: 28px; right: 28px; z-index: 200; }
+  .export-fab button { background: var(--navy); color: var(--gold); border: 2px solid var(--gold); border-radius: 50px; padding: 12px 20px; font-size: 0.82rem; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 8px; transition: all 0.2s; }
+  .export-fab button:hover { background: var(--gold); color: var(--navy); }
+
+  /* PROGRESS BAR */
+  .progress-bar { background: var(--border); border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+
+  /* COLLAB CARD */
+  .collab-card { border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px; }
+  .collab-status { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+
+  /* IG GRID */
+  .ig-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .ig-card { border: 1px solid var(--border); border-radius: 8px; padding: 12px; text-align: center; cursor: pointer; transition: all 0.15s; }
+  .ig-card:hover { border-color: var(--teal); transform: translateY(-1px); }
+  .ig-avatar { width: 44px; height: 44px; border-radius: 50%; background: linear-gradient(135deg, #f6a600, #e1306c); color: #fff; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-weight: 700; font-size: 1rem; }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    #sidebar { width: 60px; }
+    .nav-item span { display: none; }
+    .sidebar-logo p, .sidebar-label { display: none; }
+    #main { margin-left: 60px; }
+    .grid-4, .grid-3 { grid-template-columns: repeat(2, 1fr); }
+    .side-panel { width: 100%; }
   }
-  @media (min-width: 900px) {
-    body { max-width: 820px; }
-    .grid-2 { grid-template-columns: repeat(3, 1fr); }
-  }
+
+  /* SECTION HEADERS */
+  .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .section-title { font-family: 'DM Serif Display', serif; font-size: 1.1rem; color: var(--navy); }
+  .section-sub { font-size: 0.78rem; color: var(--slate); margin-top: 2px; }
+
+  /* DATE STAMP */
+  .date-chip { display: inline-flex; align-items: center; gap: 4px; background: #f0f4f8; border-radius: 12px; padding: 3px 8px; font-size: 0.72rem; color: var(--slate); }
+  .date-chip.overdue { background: #fed7d7; color: #9b2335; }
+  .date-chip.soon { background: #fefcbf; color: #744210; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .text-sm { font-size: 0.78rem; }
+  .text-muted { color: var(--slate); }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .mt-1 { margin-top: 4px; }
+  .mt-2 { margin-top: 8px; }
+  .mt-3 { margin-top: 12px; }
+  .mb-3 { margin-bottom: 12px; }
+  .w-full { width: 100%; }
+  .font-bold { font-weight: 600; }
+  .hidden { display: none !important; }
 </style>
 </head>
 <body>
 
-<!-- DETAIL OVERLAY -->
-<div class="detail-overlay" id="detailOverlay">
-  <div class="detail-header">
-    <button class="back-btn" onclick="closeDetail()">
-      <svg viewBox="0 0 24 24" width="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-      Back
-    </button>
-    <div id="detailTitle" class="name" style="font-size:18px"></div>
-    <div id="detailSub" class="sub" style="margin-top:4px"></div>
-    <div id="detailTags" style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"></div>
-  </div>
-  <div style="padding:16px" id="detailBody"></div>
-</div>
+<div id="app">
+  <!-- SIDEBAR -->
+  <nav id="sidebar">
+    <div class="sidebar-logo">
+      <h1>Sil Network</h1>
+      <p>FSC · Agent 65790</p>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Main</div>
+      <div class="nav-item active" onclick="showPage('today')" id="nav-today">
+        <span class="nav-icon">📅</span><span>Today</span>
+        <span class="badge" id="today-badge" style="display:none">0</span>
+      </div>
+      <div class="nav-item" onclick="showPage('clients')" id="nav-clients">
+        <span class="nav-icon">👥</span><span>Clients</span>
+      </div>
+      <div class="nav-item" onclick="showPage('policies')" id="nav-policies">
+        <span class="nav-icon">📋</span><span>Policies</span>
+      </div>
+      <div class="nav-item" onclick="showPage('aum')" id="nav-aum">
+        <span class="nav-icon">💰</span><span>AUM</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Network</div>
+      <div class="nav-item" onclick="showPage('collabs')" id="nav-collabs">
+        <span class="nav-icon">🤝</span><span>Collabs</span>
+      </div>
+      <div class="nav-item" onclick="showPage('pipeline')" id="nav-pipeline">
+        <span class="nav-icon">🔒</span><span>CIMB Pipeline</span>
+        <span class="badge badge-warn">2230</span>
+      </div>
+      <div class="nav-item" onclick="showPage('ig')" id="nav-ig">
+        <span class="nav-icon">📸</span><span>IG Network</span>
+        <span class="badge" style="background:#e1306c">594</span>
+      </div>
+    </div>
+    <div class="sidebar-section">
+      <div class="sidebar-label">Review</div>
+      <div class="nav-item" onclick="showPage('weekly')" id="nav-weekly">
+        <span class="nav-icon">📊</span><span>Weekly Review</span>
+      </div>
+    </div>
+  </nav>
 
-<!-- HEADER -->
-<div class="header">
-  <div class="header-label">Silvester Chua</div>
-  <div class="header-top">
-    <div class="header-title">Sil Network</div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <div id="syncStatus" style="font-size:10px;color:var(--muted)">● Live</div>
-      <button onclick="syncData()" style="background:var(--teal);border:none;color:#fff;border-radius:6px;padding:5px 10px;font-size:11px;cursor:pointer">↻ Sync</button>
+  <!-- MAIN CONTENT -->
+  <div id="main">
+    <div id="topbar">
+      <div>
+        <div class="topbar-title" id="page-title">Today</div>
+        <div class="text-sm text-muted" id="page-sub"></div>
+      </div>
+      <div class="topbar-actions">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" class="form-input search-bar" id="global-search" placeholder="Search clients, policies..." style="width:220px;padding-left:32px" oninput="globalSearch(this.value)">
+        </div>
+        <button class="btn btn-primary" onclick="openAddModal()">+ Add</button>
+      </div>
+    </div>
+
+    <div id="content">
+      <!-- Pages injected here -->
     </div>
   </div>
-  <div class="header-stats">
-    <div class="header-stat"><span id="hClientsCount">59</span> clients</div>
-    <div class="header-stat"><span id="hAUMTotal">—</span> AUM</div>
-    <div class="header-stat" id="hBdayAlert" style="color:var(--amber)"></div>
-    <div class="header-stat" id="hCGAlert" style="color:var(--teal)"></div>
+</div>
+
+<!-- EXPORT FAB -->
+<div class="export-fab">
+  <button onclick="exportForClaude()">🤖 Export for Claude</button>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay hidden" id="modal-overlay" onclick="closeModal(event)">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Add</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+    <div class="modal-footer" id="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="modalSave()">Save</button>
+    </div>
   </div>
 </div>
 
-<!-- TABS -->
-<div class="tab active" id="tab-home"></div>
-<div class="tab" id="tab-clients"></div>
-<div class="tab" id="tab-policies"></div>
-<div class="tab" id="tab-collabs"></div>
-<div class="tab" id="tab-dashboard"></div>
-
-<!-- BOTTOM NAV -->
-<nav class="nav">
-  <button class="nav-btn active" onclick="showTab('home',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-    Today
-  </button>
-  <button class="nav-btn" onclick="showTab('clients',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-    Clients
-  </button>
-  <button class="nav-btn" onclick="showTab('policies',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-    Policies
-  </button>
-  <button class="nav-btn" onclick="showTab('collabs',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
-    Collabs
-  </button>
-  <button class="nav-btn" onclick="showTab('dashboard',this)">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    Dashboard
-  </button>
-</nav>
+<!-- SIDE PANEL -->
+<div class="panel-overlay hidden" id="panel-overlay" onclick="closePanel()"></div>
+<div class="side-panel hidden" id="side-panel"></div>
 
 <script>
-// ── CONFIG ────────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwWYJx9CVqe-oI1DQFp1xuS_9QDooXr0QHHCFBQgSAn3x6vIMiupRSaizBo0Y6GNqXe7Q/exec?token=silnetwork2024sc';
-let lastSyncTime = null;
+// ============================================================
+// CONFIG
+// ============================================================
+const API_URL = 'https://script.google.com/macros/s/AKfycbwWYJx9CVqe-oI1DQFp1xuS_9QDooXr0QHHCFBQgSAn3x6vIMiupRSaizBo0Y6GNqXe7Q/exec';
+const TOKEN = 'silnetwork2024sc';
+const LOCK_DATE = new Date('2027-03-03');
+const TODAY = new Date();
 
-// ── DATA (populated exclusively via Google Sheet sync — no data stored here) ──
-let CLIENTS_DATA = [];
-let POLICIES_DATA = [];
-let COLLABS_DATA = [];
+// ============================================================
+// STATE
+// ============================================================
+let state = {
+  clients: [], policies: [], collabs: [], pipeline: [], ig: [],
+  notes: {}, // keyed by clientId or contactId
+  loading: false,
+  currentPage: 'today',
+  charts: {},
+  modalSaveFn: null,
+};
 
-// ── STATE ──────────────────────────────────────────────────────────────────
-let followedUp = JSON.parse(localStorage.getItem('sil_followedup') || '{}');
-let clientFilter = 'All', polFilter = 'All', collabFilter = 'All';
-let clientSearch = '', polSearch = '', collabSearch = '';
-
-// ── HELPERS ────────────────────────────────────────────────────────────────
-const fmt = n => 'SGD ' + Math.round(n).toLocaleString('en-SG');
-const fmtK = n => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(0)+'K' : Math.round(n).toString();
-
-function daysUntilBday(dob) {
-  if (!dob) return null;
-  const today = new Date(); today.setHours(0,0,0,0);
-  const b = new Date(dob);
-  let next = new Date(today.getFullYear(), b.getMonth(), b.getDate());
-  if (next < today) next.setFullYear(today.getFullYear() + 1);
-  return Math.round((next - today) / 86400000);
-}
-
-function cgDate(inception) {
-  const d = new Date(inception);
-  try { return new Date(d.getFullYear()+3, d.getMonth(), d.getDate()); }
-  catch { return new Date(d.getFullYear()+3, d.getMonth(), 28); }
-}
-
-function nextPremiumDate(inception, freq) {
-  if (!inception || freq === 'Single') return null;
-  const inc = new Date(inception); inc.setHours(0,0,0,0);
-  const today = new Date(); today.setHours(0,0,0,0);
-  let d = new Date(inc);
-  while (d <= today) {
-    if (freq === 'Yearly') d.setFullYear(d.getFullYear()+1);
-    else if (freq === 'Monthly') d.setMonth(d.getMonth()+1);
-    else break;
-  }
-  return d;
-}
-
-function isFullyPaid(p) {
-  if (p.freq === 'Single') return true;
-  if (!p.maxPay) return false;
-  const inc = new Date(p.inception);
-  const today = new Date();
-  let paid = 0, d = new Date(inc);
-  while (d <= today) { paid++; d.setFullYear(d.getFullYear()+1); }
-  return paid >= p.maxPay;
-}
-
-function catColor(cat) {
-  return cat==='C1'?'var(--purple)':cat==='C2'?'var(--teal)':cat==='C3'?'var(--amber)':'var(--muted)';
-}
-function insurerColor(ins) {
-  return ins==='Singlife'?'var(--teal)':ins==='Income'?'var(--amber)':ins==='FWD'?'var(--red)':ins==='Manulife'?'var(--purple)':'var(--blue)';
-}
-function tag(label, color) {
-  return `<span class="tag" style="color:${color};border-color:${color}44;background:${color}15">${label}</span>`;
-}
-
-// ── SYNC FROM GOOGLE APPS SCRIPT ─────────────────────────────────────────
-async function syncData() {
-  const el = document.getElementById('syncStatus');
-  el.innerHTML = '↻ Syncing...';
-  el.style.color = 'var(--amber)';
+// ============================================================
+// API HELPERS
+// ============================================================
+async function apiFetch(action, params = {}) {
+  const url = new URL(API_URL);
+  url.searchParams.set('token', TOKEN);
+  url.searchParams.set('action', action);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
   try {
-    const r = await fetch(APPS_SCRIPT_URL);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const raw = await r.json();
-
-    // ── Parse Clients (row 0=title, row 1=headers, row 2=note, rows 3+ = data)
-    // Columns: A=ClientID B=Name C=DOB D=Age E=Gender F=Nationality G=Mobile
-    //          H=Email I=Address J=Area K=Country L=C-Category M=TotalAUM
-    //          N=Notes O=LastContact P=NextAction Q=IG R=FB S=LinkedIn T=WhatsApp
-    if (raw.clients && raw.clients.length > 3) {
-      const rows = raw.clients.slice(3).filter(r => r[0] && r[1]);
-      CLIENTS_DATA.length = 0;
-      rows.forEach(r => {
-        const dobRaw = r[2] ? String(r[2]).trim() : '';
-        const aum = parseFloat(String(r[12]).replace(/[^0-9.]/g,'')) || 0;
-        CLIENTS_DATA.push({
-          id:          String(r[0]).trim(),
-          name:        String(r[1]).trim(),
-          dob:         dobRaw,
-          age:         parseInt(r[3]) || null,
-          gender:      String(r[4]||'').trim(),
-          nationality: String(r[5]||'').trim(),
-          mobile:      String(r[6]||'').trim(),
-          email:       String(r[7]||'').trim(),
-          address:     String(r[8]||'').trim(),
-          area:        String(r[9]||'').trim(),
-          aum:         aum,
-          cat:         aum>=200000?'C1':aum>=100000?'C2':aum>=50000?'C3':'C4',
-          notes:       String(r[13]||'').trim(),
-          lastContact: String(r[14]||'').trim(),
-          nextAction:  String(r[15]||'').trim(),
-          ig:          String(r[16]||'').trim(),
-          fb:          String(r[17]||'').trim(),
-          linkedin:    String(r[18]||'').trim(),
-          wa:          String(r[19]||'').trim(),
-        });
-      });
-    }
-
-    // ── Parse Policies (row 0=title, row 1=headers, rows 2+ = data)
-    // Columns: A=PolicyID B=ClientID C=ClientName D=Insurer E=Product F=Status
-    //          G=Inception H=Freq I=AnnualPremium J=SumAssured K=PolicyAge
-    //          L=PaymentsMade M=MaxPayments N=FullyPaid O=CapitalGuaranteed
-    //          P=CGDate Q=DaysToCG R=NextPremiumDue
-    if (raw.policies && raw.policies.length > 2) {
-      const rows = raw.policies.slice(2).filter(r => r[0] && r[1]);
-      POLICIES_DATA.length = 0;
-      rows.forEach(r => {
-        const maxP = parseInt(r[12]) || null;
-        POLICIES_DATA.push({
-          polId:     String(r[0]).trim(),
-          clientId:  String(r[1]).trim(),
-          client:    String(r[2]).trim(),
-          insurer:   String(r[3]).trim(),
-          product:   String(r[4]).trim(),
-          status:    String(r[5]).trim(),
-          inception: String(r[6]||'').trim().substring(0,10),
-          freq:      String(r[7]).trim(),
-          ap:        parseFloat(String(r[8]).replace(/[^0-9.]/g,'')) || 0,
-          sa:        parseFloat(String(r[9]).replace(/[^0-9.]/g,'')) || 0,
-          maxPay:    maxP,
-        });
-      });
-    }
-
-    // ── Parse Collabs (row 0=title, row 1=headers, rows 2+ = data)
-    // Columns: A=ID B=Name C=Location D=Type E=FirstMet F=Summary G=NextAction
-    //          H=LastTouchpoint I=Platform J=Notes
-    if (raw.collabs && raw.collabs.length > 2) {
-      const rows = raw.collabs.slice(2).filter(r => r[0] && r[1]);
-      COLLABS_DATA.length = 0;
-      rows.forEach(r => {
-        COLLABS_DATA.push({
-          id:      String(r[0]).trim(),
-          name:    String(r[1]).trim(),
-          loc:     String(r[2]||'').trim(),
-          type:    String(r[3]||'').trim(),
-          met:     String(r[4]||'').trim().substring(0,10),
-          summary: String(r[5]||'').trim(),
-          action:  String(r[6]||'').trim(),
-          lastTouch:String(r[7]||'').trim(),
-          platform: String(r[8]||'').trim(),
-          notes:   String(r[9]||'').trim(),
-        });
-      });
-    }
-
-    lastSyncTime = new Date();
-    el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
-    el.style.color = 'var(--green)';
-    renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
+    const r = await fetch(url.toString());
+    const data = await r.json();
+    return data;
   } catch(e) {
-    el.innerHTML = '✗ Sync failed';
-    el.style.color = 'var(--red)';
-    console.error('Sync error:', e);
+    console.warn('API error:', e);
+    return null;
   }
 }
 
-// ── TAB NAVIGATION ────────────────────────────────────────────────────────
-function showTab(name, btn) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active');
-  btn.classList.add('active');
-  renderTab(name);
-}
-
-function renderTab(name) {
-  if (name==='home') renderHome();
-  else if (name==='clients') renderClients();
-  else if (name==='policies') renderPolicies();
-  else if (name==='collabs') renderCollabs();
-  else if (name==='dashboard') renderDashboard();
-}
-
-// ── HOME ──────────────────────────────────────────────────────────────────
-function renderHome() {
-  if (!CLIENTS_DATA.length) {
-    document.getElementById('tab-home').innerHTML = `
-      <div style="text-align:center;padding:60px 24px">
-        <div style="font-size:40px;margin-bottom:16px">🔒</div>
-        <div style="color:var(--text);font-size:16px;font-weight:600;margin-bottom:8px">Syncing your data...</div>
-        <div style="color:var(--muted);font-size:13px;margin-bottom:24px">Connecting to your private Google Sheet</div>
-        <button class="action-btn btn-teal" onclick="syncData()">↻ Sync Now</button>
-      </div>`;
-    document.getElementById('hClientsCount').textContent = '—';
-    document.getElementById('hAUMTotal').textContent = '—';
-    return;
+async function apiPost(action, body) {
+  try {
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      body: JSON.stringify({ token: TOKEN, action, ...body })
+    });
+    return await r.json();
+  } catch(e) {
+    console.warn('API post error:', e);
+    return null;
   }
-  const today = new Date(); today.setHours(0,0,0,0);
-  const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days<=30).sort((a,b)=>a.days-b.days);
-  const cgAlerts = POLICIES_DATA.filter(p=>p.product.includes('Flexi Life Income II')).map(p=>{
-    const cg = cgDate(p.inception);
-    const days = Math.round((cg-today)/86400000);
-    return {...p, cgDate:cg, daysToC:days};
-  }).filter(p=>p.daysToC>0&&p.daysToC<=180).sort((a,b)=>a.daysToC-b.daysToC);
+}
 
-  const premDue = POLICIES_DATA.filter(p=>!isFullyPaid(p)&&p.freq!=='Single').map(p=>{
-    const next = nextPremiumDate(p.inception, p.freq);
-    if (!next) return null;
-    const days = Math.round((next-today)/86400000);
-    return {...p, nextDate:next, daysToP:days};
-  }).filter(p=>p&&p.daysToP>0&&p.daysToP<=90).sort((a,b)=>a.daysToP-b.daysToP);
+// ============================================================
+// NOTES (local + sync)
+// ============================================================
+function getNotes(id) { return state.notes[id] || []; }
+function addNote(id, text) {
+  if (!state.notes[id]) state.notes[id] = [];
+  const note = { text, ts: new Date().toISOString(), author: 'Silvester' };
+  state.notes[id].unshift(note);
+  saveNotesLocal();
+  return note;
+}
+function saveNotesLocal() {
+  try { localStorage.setItem('sn_notes', JSON.stringify(state.notes)); } catch(e) {}
+}
+function loadNotesLocal() {
+  try { const n = localStorage.getItem('sn_notes'); if(n) state.notes = JSON.parse(n); } catch(e) {}
+}
+function renderNotes(id) {
+  const notes = getNotes(id);
+  const thread = notes.map(n => `
+    <div class="note-entry">
+      <div class="note-meta">${n.author} · ${fmtDatetime(n.ts)}</div>
+      <div>${escHtml(n.text)}</div>
+    </div>`).join('') || '<div class="text-sm text-muted">No notes yet.</div>';
+  return `
+    <div class="notes-thread" id="notes-thread-${id}">${thread}</div>
+    <div style="display:flex;gap:6px">
+      <input type="text" class="form-input" id="note-input-${id}" placeholder="Add note..." style="flex:1" onkeydown="if(event.key==='Enter')submitNote('${id}')">
+      <button class="btn btn-primary btn-sm" onclick="submitNote('${id}')">Add</button>
+    </div>`;
+}
+function submitNote(id) {
+  const inp = document.getElementById('note-input-'+id);
+  if (!inp || !inp.value.trim()) return;
+  addNote(id, inp.value.trim());
+  inp.value = '';
+  const thread = document.getElementById('notes-thread-'+id);
+  if (thread) thread.innerHTML = getNotes(id).map(n=>`
+    <div class="note-entry">
+      <div class="note-meta">${n.author} · ${fmtDatetime(n.ts)}</div>
+      <div>${escHtml(n.text)}</div>
+    </div>`).join('');
+}
 
-  // Update header alerts
-  document.getElementById('hBdayAlert').textContent = bdayAlerts.length ? `🎂 ${bdayAlerts.length} bdays` : '';
-  document.getElementById('hCGAlert').textContent = cgAlerts.length ? `🛡 ${cgAlerts.length} CG alerts` : '';
-  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
-  document.getElementById('hAUMTotal').textContent = 'SGD '+fmtK(totalAUM);
-  document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
+// ============================================================
+// AUM CALCULATION (from policy data, not Sheet col M)
+// ============================================================
+function calcClientAUM(clientId) {
+  const policies = state.policies.filter(p => p.clientId === clientId || p.ClientID === clientId);
+  let liquid = 0, nonLiquid = 0, estate = 0, living = 0;
+  for (const p of policies) {
+    const premium = parseFloat(p.annualPremium || p.AnnualPremium || p.premium || 0);
+    const sa = parseFloat(p.sumAssured || p.SumAssured || p.sumassured || 0);
+    const type = (p.policyType || p.PolicyType || p.type || '').toLowerCase();
+    const status = (p.status || p.Status || '').toLowerCase();
+    if (status === 'lapsed' || status === 'cancelled') continue;
+    if (type.includes('ilp') || type.includes('investment') || type.includes('endowment')) liquid += premium;
+    else if (type.includes('whole') || type.includes('universal')) nonLiquid += premium;
+    else if (type.includes('term') || type.includes('life')) estate += sa;
+    else living += premium;
+  }
+  return { liquid, nonLiquid, estate, living, total: liquid + nonLiquid + living };
+}
 
-  let html = '';
+function calcTotalAUM() {
+  let t = 0;
+  for (const c of state.clients) {
+    t += calcClientAUM(c.id || c.ClientID || c.ID)?.total || 0;
+  }
+  return t;
+}
 
-  // BIRTHDAYS
-  if (bdayAlerts.length) {
-    html += `<div class="section-title">🎂 Birthdays — Next 30 Days</div>`;
-    bdayAlerts.forEach(c => {
-      const urgent = c.days <= 7;
-      html += `<div class="alert-card ${urgent?'alert-red':'alert-amber'}">
-        <div class="row">
-          <div class="col">
-            <div class="name" style="font-size:14px">${c.name}</div>
-            <div class="sub">${new Date(c.dob).toLocaleDateString('en-GB',{day:'numeric',month:'long'})} · Age ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear() : new Date().getFullYear()-new Date(c.dob).getFullYear()-1} → ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear()+1 : new Date().getFullYear()-new Date(c.dob).getFullYear()}</div>
-            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-              ${tag(c.cat, catColor(c.cat))}
-              ${c.mobile?`<a href="https://wa.me/65${c.mobile}" style="text-decoration:none">${tag('💬 WhatsApp','var(--green)')}</a>`:''}
-            </div>
+// ============================================================
+// DATE HELPERS
+// ============================================================
+function fmtDate(d) {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-SG', { day:'2-digit', month:'short', year:'numeric' });
+}
+function fmtDatetime(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  if (isNaN(dt)) return d;
+  return dt.toLocaleDateString('en-SG', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+}
+function daysDiff(d) {
+  const dt = new Date(d);
+  return Math.round((dt - TODAY) / (1000*60*60*24));
+}
+function daysAgo(d) {
+  const dt = new Date(d);
+  return Math.round((TODAY - dt) / (1000*60*60*24));
+}
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fmtMoney(n) { return 'S$' + Number(n||0).toLocaleString('en-SG', {minimumFractionDigits:0}); }
+function lockDaysRemaining() { return Math.max(0, Math.round((LOCK_DATE - TODAY) / (1000*60*60*24))); }
+
+// ============================================================
+// LOAD DATA
+// ============================================================
+async function loadAll() {
+  state.loading = true;
+  loadNotesLocal();
+  
+  // Mock data if API unavailable
+  const clientsData = await apiFetch('getClients');
+  const policiesData = await apiFetch('getPolicies');
+  const collabsData = await apiFetch('getCollabs');
+  const pipelineData = await apiFetch('getPipeline');
+  const igData = await apiFetch('getIGNetwork');
+
+  state.clients = (clientsData?.data || clientsData || []).filter(Array.isArray([]) ? ()=>true : x=>x);
+  state.policies = (policiesData?.data || policiesData || []).filter(x=>x);
+  state.collabs = (collabsData?.data || collabsData || []).filter(x=>x);
+  state.pipeline = (pipelineData?.data || pipelineData || []).filter(x=>x);
+  state.ig = (igData?.data || igData || []).filter(x=>x);
+
+  // Seed demo data if empty
+  if (state.clients.length === 0) seedDemoData();
+
+  updateAlerts();
+  state.loading = false;
+  renderPage(state.currentPage);
+}
+
+function seedDemoData() {
+  state.clients = [
+    { id:'C001', name:'Tan Wei Ming', phone:'+65 9123 4567', email:'wei@email.com', dob:'1985-03-15', address:'10 Orchard Rd #12-01, S238897', lastContact:'2025-12-01', segment:'HNW', ig:'@tanweiming' },
+    { id:'C002', name:'Priya Nair', phone:'+65 9876 5432', email:'priya@email.com', dob:'1990-07-22', address:'5 Bishan St 11 #08-44, S570005', lastContact:'2026-01-15', segment:'Mass', ig:'@priya.nair' },
+    { id:'C003', name:'Ahmad Fauzi', phone:'+65 8765 4321', email:'ahmad@email.com', dob:'1978-11-30', address:'88 Marine Parade Rd, S449278', lastContact:'2026-03-20', segment:'Affluent', ig:'@ahmadfauzi' },
+    { id:'C004', name:'Linda Goh', phone:'+65 9234 5678', email:'linda@email.com', dob:'1992-05-10', address:'22 Tampines Ave 5, S520022', lastContact:'2026-04-10', segment:'Mass', ig:'@lindagoh' },
+  ];
+  state.policies = [
+    { id:'P001', clientId:'C001', insurer:'AIA', policyNo:'A1234567', policyType:'Whole Life', annualPremium:8400, sumAssured:500000, commDate:'2022-06-01', status:'Active', backdateDate:'', actualSignDate:'' },
+    { id:'P002', clientId:'C001', insurer:'Singlife', policyNo:'SL987654', policyType:'ILP', annualPremium:12000, sumAssured:0, commDate:'2023-01-15', status:'Active', backdateDate:'2022-12-01', actualSignDate:'2023-01-10' },
+    { id:'P003', clientId:'C002', insurer:'Prudential', policyNo:'PR234567', policyType:'Term', annualPremium:1800, sumAssured:300000, commDate:'2021-09-01', status:'Active', backdateDate:'', actualSignDate:'' },
+    { id:'P004', clientId:'C003', insurer:'AIA', policyNo:'A8765432', policyType:'Endowment', annualPremium:6000, sumAssured:100000, commDate:'2020-03-01', status:'Active', backdateDate:'', actualSignDate:'' },
+    { id:'P005', clientId:'C004', insurer:'Singlife', policyNo:'SL123456', policyType:'ILP', annualPremium:3600, sumAssured:0, commDate:'2024-02-01', status:'Active', backdateDate:'2024-01-01', actualSignDate:'2024-01-28' },
+  ];
+  state.collabs = [
+    { id:'COL001', name:'David Lim', role:'Mortgage Broker', company:'DBS', lastContact:'2026-03-01', nextFollowup:'2026-06-15', status:'Active', notes:[] },
+    { id:'COL002', name:'Sarah Wong', role:'Will Specialist', company:'Rockwills', lastContact:'2026-01-20', nextFollowup:'2026-07-01', status:'Warm', notes:[] },
+    { id:'COL003', name:'Kevin Tan', role:'Tax Advisor', company:'KPMG', lastContact:'2025-11-05', nextFollowup:'2026-06-10', status:'Cold', notes:[] },
+  ];
+  state.pipeline = Array.from({length:20}, (_,i) => ({
+    id:`CIMB${String(i+1).padStart(4,'0')}`, name:`Contact ${i+1}`, phone:`+65 9${String(Math.floor(Math.random()*9000000+1000000))}`,
+    category: ['Priority','Warm','Cold'][i%3], lastNudge: i%5===0 ? '2026-01-01' : null, notes:''
+  }));
+  state.ig = Array.from({length:20}, (_,i) => ({
+    id:`IG${i+1}`, handle:`@user${i+1}`, name:`Follower ${i+1}`, mutualFollow:true, converted:i%7===0, notes:''
+  }));
+}
+
+function updateAlerts() {
+  let count = 0;
+  for (const c of state.clients) {
+    if (daysAgo(c.lastContact) >= 60) count++;
+  }
+  const badge = document.getElementById('today-badge');
+  if (badge) { badge.textContent = count; badge.style.display = count > 0 ? '' : 'none'; }
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function showPage(page) {
+  state.currentPage = page;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const nav = document.getElementById('nav-'+page);
+  if (nav) nav.classList.add('active');
+  renderPage(page);
+}
+
+function renderPage(page) {
+  const titles = {
+    today:'Today', clients:'Clients', policies:'Policies', aum:'AUM Calculator',
+    collabs:'Collabs', pipeline:'CIMB Pipeline', ig:'IG Network', weekly:'Weekly Review'
+  };
+  document.getElementById('page-title').textContent = titles[page] || page;
+  
+  const pages = {
+    today: renderToday,
+    clients: renderClients,
+    policies: renderPolicies,
+    aum: renderAUM,
+    collabs: renderCollabs,
+    pipeline: renderPipeline,
+    ig: renderIG,
+    weekly: renderWeekly,
+  };
+  const content = document.getElementById('content');
+  if (state.loading) { content.innerHTML = '<div class="loading"><div class="spinner"></div> Loading data...</div>'; return; }
+  if (pages[page]) content.innerHTML = pages[page]();
+  else content.innerHTML = '<div class="loading">Coming soon.</div>';
+  afterRender(page);
+}
+
+function afterRender(page) {
+  if (page === 'aum') renderAUMCharts();
+  if (page === 'today') renderTodayCharts();
+}
+
+// ============================================================
+// TODAY PAGE
+// ============================================================
+function renderToday() {
+  const overdue60 = state.clients.filter(c => daysAgo(c.lastContact) >= 60);
+  const collabDue = state.collabs.filter(c => {
+    if (!c.nextFollowup) return false;
+    return daysDiff(c.nextFollowup) <= 7;
+  });
+  const totalAUM = calcTotalAUM();
+
+  return `
+    <div class="grid-4" style="margin-bottom:20px">
+      <div class="stat-card"><span class="stat-icon">👥</span><div class="stat-label">Clients</div><div class="stat-value">${state.clients.length}</div></div>
+      <div class="stat-card"><span class="stat-icon">📋</span><div class="stat-label">Active Policies</div><div class="stat-value">${state.policies.filter(p=>(p.status||'').toLowerCase()==='active').length}</div></div>
+      <div class="stat-card"><span class="stat-icon">💰</span><div class="stat-label">Total AUM (Est.)</div><div class="stat-value" style="font-size:1.3rem">${fmtMoney(totalAUM)}</div><div class="stat-sub">From policy premiums</div></div>
+      <div class="stat-card"><span class="stat-icon">⚠️</span><div class="stat-label">60-Day Alerts</div><div class="stat-value" style="color:${overdue60.length>0?'var(--danger)':'var(--success)'}">${overdue60.length}</div></div>
+    </div>
+
+    ${overdue60.length > 0 ? `
+    <div class="card mb-3" style="margin-bottom:20px">
+      <div class="section-header"><div><div class="section-title">⚠️ 60-Day Follow-Up Alerts</div><div class="section-sub">Clients not contacted in 60+ days</div></div></div>
+      ${overdue60.map(c => {
+        const days = daysAgo(c.lastContact);
+        return `<div class="collab-card" style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="openClientPanel('${c.id}')">
+          <div class="avatar">${(c.name||'?')[0]}</div>
+          <div style="flex:1">
+            <div class="font-bold">${escHtml(c.name)}</div>
+            <div class="text-sm text-muted">${escHtml(c.phone||'')}</div>
           </div>
-          <div style="text-align:right">
-            <div class="badge" style="color:${urgent?'var(--red)':'var(--amber)'}">${c.days===0?'TODAY':c.days+'d'}</div>
+          <div><span class="date-chip overdue">Last: ${fmtDate(c.lastContact)} (${days}d ago)</span></div>
+          <button class="btn btn-primary btn-sm" onclick="event.stopPropagation();markContacted('${c.id}')">Mark Contacted</button>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
+
+    ${collabDue.length > 0 ? `
+    <div class="card" style="margin-bottom:20px">
+      <div class="section-header"><div class="section-title">🤝 Collab Follow-ups Due</div></div>
+      ${collabDue.map(c => `
+        <div class="collab-card flex items-center gap-2" style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1"><div class="font-bold">${escHtml(c.name)}</div><div class="text-sm text-muted">${escHtml(c.role)} · ${escHtml(c.company)}</div></div>
+          <span class="date-chip soon">Due ${fmtDate(c.nextFollowup)}</span>
+          <button class="btn btn-outline btn-sm" onclick="logCollabContact('${c.id}')">Log Contact</button>
+        </div>`).join('')}
+    </div>` : ''}
+
+    <div class="grid-2" style="gap:20px">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">CIMB Pipeline Lock</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:2rem">🔒</div>
+          <div>
+            <div class="font-bold" style="font-size:1.1rem;color:var(--navy)">${lockDaysRemaining()} days remaining</div>
+            <div class="text-sm text-muted">Non-solicitation until 3 Mar 2027</div>
+            <div class="text-sm text-muted">${state.pipeline.length.toLocaleString()} / 2,230 contacts loaded</div>
           </div>
         </div>
-      </div>`;
-    });
-  }
-
-  // CAPITAL GUARANTEE ALERTS
-  if (cgAlerts.length) {
-    html += `<div class="section-title">🛡 Capital Guarantee — Approaching 3 Years</div>`;
-    cgAlerts.forEach(p => {
-      const client = CLIENTS_DATA.find(c=>c.id===p.clientId)||{};
-      const urgent = p.daysToC <= 60;
-      html += `<div class="alert-card ${urgent?'alert-red':'alert-teal'}">
-        <div class="row">
-          <div class="col">
-            <div class="name" style="font-size:14px">${p.client}</div>
-            <div class="sub">Policy ${p.polId} · ${fmt(p.ap)}/yr</div>
-            <div class="sub">CG Date: ${p.cgDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-            <div style="margin-top:4px">${tag('⚠ Singlife backdating — verify actual CG date','var(--amber)')}</div>
-          </div>
-          <div style="text-align:right">
-            <div class="badge" style="color:${urgent?'var(--red)':'var(--teal)'}">${p.daysToC}d</div>
-            <div class="sub">to CG</div>
-          </div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">Quick Stats</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="text-sm"><span class="text-muted">Collabs:</span> ${state.collabs.length}</div>
+          <div class="text-sm"><span class="text-muted">IG Network:</span> 594</div>
+          <div class="text-sm"><span class="text-muted">CIMB Pipeline:</span> 2,230</div>
+          <div class="text-sm"><span class="text-muted">Active HNW:</span> ${state.clients.filter(c=>c.segment==='HNW').length}</div>
         </div>
-      </div>`;
-    });
-  }
-
-  // PREMIUMS DUE
-  if (premDue.length) {
-    html += `<div class="section-title">⚡ Premiums Due — Next 90 Days</div>`;
-    premDue.forEach(p => {
-      const key = p.polId;
-      const done = followedUp[key];
-      const urgent = p.daysToP <= 30;
-      html += `<div class="alert-card ${done?'followed-up':urgent?'alert-red':'alert-amber'}" id="prem_${key}">
-        <div class="row">
-          <div class="col" style="flex:1">
-            <div class="name" style="font-size:14px">${p.client}</div>
-            <div class="sub">${p.insurer} · ${p.product.length>28?p.product.substring(0,28)+'…':p.product}</div>
-            <div class="money" style="font-size:13px;margin-top:4px">${fmt(p.ap)}</div>
-            <div class="sub">Due: ${p.nextDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-            <div style="margin-top:6px">
-              <button class="action-btn ${done?'btn-ghost':'btn-teal'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUp('${key}')">
-                ${done?'✓ Followed Up':'Mark Followed Up'}
-              </button>
-            </div>
-          </div>
-          <div style="text-align:right;min-width:50px">
-            <div class="badge" style="color:${done?'var(--green)':urgent?'var(--red)':'var(--amber)'}">${done?'✓':p.daysToP+'d'}</div>
-          </div>
-        </div>
-      </div>`;
-    });
-  }
-
-  if (!bdayAlerts.length && !cgAlerts.length && !premDue.length) {
-    html += `<div class="empty">✅ All clear today — nothing urgent</div>`;
-  }
-
-  document.getElementById('tab-home').innerHTML = html;
+      </div>
+    </div>`;
 }
+function renderTodayCharts() {}
 
-function toggleFollowUp(key) {
-  followedUp[key] = !followedUp[key];
-  localStorage.setItem('sil_followedup', JSON.stringify(followedUp));
-  renderHome();
-}
-
-// ── CLIENTS ───────────────────────────────────────────────────────────────
+// ============================================================
+// CLIENTS PAGE
+// ============================================================
 function renderClients() {
-  const cats = ['All','C1','C2','C3','C4'];
-  let html = `<div class="search-bar"><input class="search-input" placeholder="Search client..." oninput="clientSearch=this.value;renderClientList()" value="${clientSearch}"/></div>`;
-  html += `<div class="filter-scroll">${cats.map(c=>`<button class="filter-btn ${clientFilter===c?'active':''}" onclick="clientFilter='${c}';renderClients()">${c==='All'?'All':c+' ('+CLIENTS_DATA.filter(x=>x.cat===c).length+')'}</button>`).join('')}</div>`;
-  html += `<div id="clientList"></div>`;
-  document.getElementById('tab-clients').innerHTML = html;
-  renderClientList();
-}
-
-function renderClientList() {
-  const q = clientSearch.toLowerCase();
-  const list = CLIENTS_DATA.filter(c=>{
-    if (clientFilter!=='All'&&c.cat!==clientFilter) return false;
-    if (q&&!c.name.toLowerCase().includes(q)&&!c.id.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  const bdays = list.map(c=>({...c,days:daysUntilBday(c.dob)})).sort((a,b)=>(b.days===null?-1:a.days===null?1:0)||(a.days-b.days));
-
-  let html = `<div class="sub" style="margin-bottom:8px">${list.length} clients</div>`;
-  list.forEach(c => {
-    const days = daysUntilBday(c.dob);
-    const bdayTag = days!==null&&days<=30 ? `${tag(days===0?'🎂 TODAY':`🎂 ${days}d`,days<=7?'var(--red)':'var(--amber)')}` : '';
-    html += `<div class="card card-tap" onclick="openClient('${c.id}')">
-      <div class="row">
-        <div class="col" style="flex:1;min-width:0">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-            <div class="name">${c.name}</div>
-            ${bdayTag}
-          </div>
-          <div class="sub" style="margin-top:3px">${c.id} · Age ${c.dob?new Date().getFullYear()-new Date(c.dob).getFullYear():' —'}</div>
-          <div style="margin-top:6px;display:flex;gap:5px;flex-wrap:wrap">
-            ${tag(c.cat,catColor(c.cat))}
-            ${tag(fmt(c.aum),'var(--gold)')}
-            ${POLICIES_DATA.filter(p=>p.clientId===c.id).map(p=>tag(p.insurer,insurerColor(p.insurer))).filter((v,i,a)=>a.findIndex(x=>x===v)===i).join('')}
-          </div>
-        </div>
-        <div style="color:var(--muted);font-size:18px">›</div>
+  return `
+    <div class="section-header">
+      <div><div class="section-title">All Clients</div><div class="section-sub">${state.clients.length} clients</div></div>
+      <div style="display:flex;gap:8px">
+        <select class="form-input btn-sm" style="width:140px" onchange="filterClients(this.value)">
+          <option value="">All Segments</option>
+          <option>HNW</option><option>Affluent</option><option>Mass</option>
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="openAddClientModal()">+ Client</button>
+      </div>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Name</th><th>Segment</th><th>Phone</th><th>Address</th><th>Last Contact</th><th>Policies</th><th>AUM</th><th>Actions</th>
+          </tr></thead>
+          <tbody id="clients-tbody">
+            ${state.clients.map(c => {
+              const days = daysAgo(c.lastContact);
+              const aum = calcClientAUM(c.id);
+              const pols = state.policies.filter(p=>p.clientId===c.id).length;
+              return `<tr>
+                <td><div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openClientPanel('${c.id}')">
+                  <div class="avatar" style="width:32px;height:32px;font-size:0.9rem">${(c.name||'?')[0]}</div>
+                  <div><div class="font-bold">${escHtml(c.name)}</div><div class="text-sm text-muted">${escHtml(c.email||'')}</div></div>
+                </div></td>
+                <td><span class="tag ${c.segment==='HNW'?'tag-gold':c.segment==='Affluent'?'tag-blue':'tag-gray'}">${c.segment||'—'}</span></td>
+                <td class="text-sm">${escHtml(c.phone||'—')}</td>
+                <td class="text-sm" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escHtml(c.address||'')}">${escHtml(c.address||'—')}</td>
+                <td><span class="date-chip ${days>=60?'overdue':days>=30?'soon':''}">${fmtDate(c.lastContact)}</span></td>
+                <td class="text-sm">${pols}</td>
+                <td class="text-sm">${fmtMoney(aum.total)}</td>
+                <td>
+                  <button class="btn btn-outline btn-sm" onclick="openClientPanel('${c.id}')">View</button>
+                  <button class="btn btn-outline btn-sm" onclick="markContacted('${c.id}')">✓</button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     </div>`;
-  });
-  document.getElementById('clientList').innerHTML = html;
 }
 
-function openClient(id) {
-  const c = CLIENTS_DATA.find(x=>x.id===id);
+function openClientPanel(id) {
+  const c = state.clients.find(x => x.id === id);
   if (!c) return;
-  const policies = POLICIES_DATA.filter(p=>p.clientId===id);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const days = daysUntilBday(c.dob);
+  const aum = calcClientAUM(id);
+  const pols = state.policies.filter(p => p.clientId === id);
+  const panel = document.getElementById('side-panel');
+  panel.innerHTML = `
+    <div class="side-panel-header">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="avatar">${(c.name||'?')[0]}</div>
+        <div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.3rem">${escHtml(c.name)}</div>
+          <div style="font-size:0.8rem;opacity:0.7">${escHtml(c.segment||'')} · ${escHtml(c.phone||'')}</div>
+          ${c.ig ? `<div style="font-size:0.75rem;opacity:0.6">${escHtml(c.ig)}</div>` : ''}
+        </div>
+      </div>
+      <button onclick="closePanel()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;margin-top:8px">✕</button>
+    </div>
+    <div class="side-panel-body">
+      <div class="tab-bar">
+        <div class="tab active" onclick="switchPanelTab(this,'pt-info')">Info</div>
+        <div class="tab" onclick="switchPanelTab(this,'pt-policies')">Policies</div>
+        <div class="tab" onclick="switchPanelTab(this,'pt-portfolio')">Portfolio</div>
+        <div class="tab" onclick="switchPanelTab(this,'pt-notes')">Notes</div>
+      </div>
 
-  document.getElementById('detailTitle').textContent = c.name;
-  document.getElementById('detailSub').textContent = `${c.id} · ${c.nationality||'—'} · ${c.dob?`DOB ${c.dob} · Age ${new Date().getFullYear()-new Date(c.dob).getFullYear()}`:'DOB unknown'}`;
-  document.getElementById('detailTags').innerHTML = [
-    tag(c.cat, catColor(c.cat)),
-    tag(fmt(c.aum)+' AUM','var(--gold)'),
-    days!==null&&days<=30?tag(days===0?'🎂 TODAY':`🎂 ${days}d`,days<=7?'var(--red)':'var(--amber)'):'',
-  ].filter(Boolean).join('');
+      <div id="pt-info">
+        <div class="form-group"><div class="form-label">Full Name</div><input class="form-input" value="${escHtml(c.name)}" id="ep-name"></div>
+        <div class="form-group"><div class="form-label">Phone</div><input class="form-input" value="${escHtml(c.phone||'')}" id="ep-phone"></div>
+        <div class="form-group"><div class="form-label">Email</div><input class="form-input" value="${escHtml(c.email||'')}" id="ep-email"></div>
+        <div class="form-group"><div class="form-label">Date of Birth</div><input class="form-input" type="date" value="${c.dob||''}" id="ep-dob"></div>
+        <div class="form-group"><div class="form-label">Address</div><textarea class="form-input" id="ep-address" rows="2">${escHtml(c.address||'')}</textarea></div>
+        <div class="form-group"><div class="form-label">Segment</div>
+          <select class="form-input" id="ep-segment">
+            ${['Mass','Affluent','HNW'].map(s=>`<option ${c.segment===s?'selected':''}>${s}</option>`).join('')}
+          </select></div>
+        <div class="form-group"><div class="form-label">IG Handle</div><input class="form-input" value="${escHtml(c.ig||'')}" id="ep-ig"></div>
+        <button class="btn btn-primary w-full" onclick="saveClientEdit('${id}')">Save Changes</button>
+      </div>
 
-  let body = '';
+      <div id="pt-policies" class="hidden">
+        ${pols.length === 0 ? '<div class="text-sm text-muted">No policies.</div>' : pols.map(p => `
+          <div class="collab-card" style="margin-bottom:10px">
+            <div class="flex items-center gap-2">
+              <span class="tag tag-blue" style="font-size:0.7rem">${escHtml(p.insurer||'')}</span>
+              <span class="font-bold text-sm">${escHtml(p.policyNo||'')}</span>
+              <span class="tag ${(p.status||'').toLowerCase()==='active'?'tag-green':'tag-red'} btn-sm">${escHtml(p.status||'')}</span>
+            </div>
+            <div class="text-sm text-muted mt-1">${escHtml(p.policyType||'')} · Premium: ${fmtMoney(p.annualPremium)} p.a.</div>
+            <div class="text-sm text-muted">SA: ${fmtMoney(p.sumAssured)} · Commenced: ${fmtDate(p.commDate)}</div>
+            ${p.insurer==='Singlife' ? `<div class="text-sm mt-1"><span class="tag tag-yellow">Singlife</span> Backdate: ${p.backdateDate?fmtDate(p.backdateDate):'<span style="color:var(--danger)">Not set</span>'} · Signed: ${p.actualSignDate?fmtDate(p.actualSignDate):'<span style="color:var(--danger)">Not set</span>'} <button class="btn btn-outline btn-sm" onclick="editSinglifeDates('${p.id}')">Edit</button></div>` : ''}
+          </div>`).join('')}
+        <button class="btn btn-outline w-full" onclick="openAddPolicyModal('${id}')">+ Add Policy</button>
+      </div>
 
-  // Contact actions
-  if (c.mobile) {
-    body += `<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <a href="tel:+65${c.mobile}" class="action-btn btn-teal" style="text-decoration:none">📞 Call</a>
-      <a href="https://wa.me/65${c.mobile}" class="action-btn btn-green" style="text-decoration:none">💬 WhatsApp</a>
-      ${c.email?`<a href="mailto:${c.email}" class="action-btn btn-ghost" style="text-decoration:none">✉️ Email</a>`:''}
+      <div id="pt-portfolio" class="hidden">
+        <div class="card card-sm" style="margin-bottom:12px">
+          <div class="text-sm text-muted mb-3">Total Estimated AUM</div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.6rem;color:var(--navy)">${fmtMoney(aum.total)}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">
+            <div class="text-sm"><span class="text-muted">Liquid:</span> ${fmtMoney(aum.liquid)}</div>
+            <div class="text-sm"><span class="text-muted">Non-liquid:</span> ${fmtMoney(aum.nonLiquid)}</div>
+            <div class="text-sm"><span class="text-muted">Estate:</span> ${fmtMoney(aum.estate)}</div>
+            <div class="text-sm"><span class="text-muted">Living:</span> ${fmtMoney(aum.living)}</div>
+          </div>
+        </div>
+        <div class="chart-container"><canvas id="pie-${id}"></canvas></div>
+        <div class="pie-legend" id="pie-legend-${id}"></div>
+      </div>
+
+      <div id="pt-notes" class="hidden">
+        ${renderNotes(id)}
+      </div>
     </div>`;
+  document.getElementById('panel-overlay').classList.remove('hidden');
+  panel.classList.remove('hidden');
+  // Render pie chart after DOM
+  setTimeout(() => renderClientPie(id, aum), 50);
+}
+
+function renderClientPie(id, aum) {
+  const ctx = document.getElementById('pie-'+id);
+  if (!ctx) return;
+  const data = [aum.liquid, aum.nonLiquid, aum.estate, aum.living].filter((_,i)=>[aum.liquid,aum.nonLiquid,aum.estate,aum.living][i]>0);
+  const labels = ['Liquid','Non-Liquid','Estate','Living'].filter((_,i)=>[aum.liquid,aum.nonLiquid,aum.estate,aum.living][i]>0);
+  const colors = ['#1a7a6e','#c9a84c','#0d1b2a','#4a90d9'];
+  if (state.charts['pie-'+id]) state.charts['pie-'+id].destroy();
+  if (data.reduce((a,b)=>a+b,0) === 0) { ctx.parentElement.innerHTML = '<div class="text-sm text-muted" style="text-align:center;padding:40px">No premium data for portfolio chart.</div>'; return; }
+  state.charts['pie-'+id] = new Chart(ctx, {
+    type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:colors.slice(0,data.length), borderWidth:2, borderColor:'#fff' }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+  });
+  const legend = document.getElementById('pie-legend-'+id);
+  if (legend) legend.innerHTML = labels.map((l,i)=>`<div class="pie-legend-item"><div class="pie-dot" style="background:${colors[i]}"></div>${l}: ${fmtMoney(data[i])}</div>`).join('');
+}
+
+function switchPanelTab(el, tabId) {
+  const panel = document.getElementById('side-panel');
+  panel.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['pt-info','pt-policies','pt-portfolio','pt-notes'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', id !== tabId);
+  });
+  if (tabId === 'pt-portfolio') {
+    const clientId = el.closest('.side-panel-body') ? null : null;
+    // Re-render handled by panel HTML
   }
+}
 
-  // Info grid
-  body += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-    ${[['Mobile',c.mobile||'—'],['Email',c.email||'—'],['Gender',c.gender||'—'],['Nationality',c.nationality||'—'],['Address',c.address||'—'],['Area',c.area||'—']].map(([k,v])=>`<div style="background:var(--surface2);border-radius:8px;padding:10px"><div class="sub">${k}</div><div style="font-size:12px;margin-top:2px;color:var(--text)">${v}</div></div>`).join('')}
-  </div>`;
+function closePanel() {
+  document.getElementById('panel-overlay').classList.add('hidden');
+  document.getElementById('side-panel').classList.add('hidden');
+}
 
-  // Policies
-  body += `<div class="section-title">Policies (${policies.length})</div>`;
-  policies.forEach(p => {
-    const fp = isFullyPaid(p);
-    const isCGProd = p.product.includes('Flexi Life Income II');
-    const cg = isCGProd ? cgDate(p.inception) : null;
-    const daysToC = cg ? Math.round((cg-today)/86400000) : null;
-    const next = fp || p.freq==='Single' ? null : nextPremiumDate(p.inception,p.freq);
-    const daysToP = next ? Math.round((next-today)/86400000) : null;
-    body += `<div class="policy-row" style="border-color:${insurerColor(p.insurer)}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div style="font-size:12px;font-weight:600;color:var(--text)">${p.insurer} — ${p.product}</div>
-          <div class="sub" style="margin-top:2px">Policy ${p.polId}</div>
-        </div>
-        ${tag(fp?'✓ Paid':p.status,'var(--green)')}
-      </div>
-      <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap">
-        <div><div class="sub">Annual Premium</div><div class="money" style="font-size:13px">${fmt(p.ap)}</div></div>
-        ${p.sa?`<div><div class="sub">Sum Assured</div><div style="font-size:12px">${fmt(p.sa)}</div></div>`:''}
-        <div><div class="sub">Inception</div><div style="font-size:12px">${p.inception}</div></div>
-        <div><div class="sub">Frequency</div><div style="font-size:12px">${p.freq}</div></div>
-      </div>
-      ${isCGProd?`<div style="margin-top:8px;padding:6px 8px;background:#0a1520;border-radius:6px">
-        <div style="font-size:11px;color:${daysToC!==null&&daysToC<=0?'var(--green)':daysToC!==null&&daysToC<=180?'var(--amber)':'var(--muted)'}">
-          🛡 Capital Guarantee: ${cg?cg.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):''} 
-          ${daysToC!==null?daysToC<=0?'✓ Guaranteed':`(${daysToC} days)`:''} 
-          · <span style="color:var(--amber);font-size:10px">⚠ Verify backdated date</span>
-        </div>
-      </div>`:''}
-      ${daysToP!==null?`<div style="margin-top:6px;font-size:11px;color:${daysToP<=30?'var(--red)':'var(--amber)'}">
-        ⚡ Next premium: ${next.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} (${daysToP}d)
-      </div>`:''}
-    </div>`;
+function saveClientEdit(id) {
+  const c = state.clients.find(x=>x.id===id);
+  if (!c) return;
+  c.name = document.getElementById('ep-name')?.value || c.name;
+  c.phone = document.getElementById('ep-phone')?.value || c.phone;
+  c.email = document.getElementById('ep-email')?.value || c.email;
+  c.dob = document.getElementById('ep-dob')?.value || c.dob;
+  c.address = document.getElementById('ep-address')?.value || c.address;
+  c.segment = document.getElementById('ep-segment')?.value || c.segment;
+  c.ig = document.getElementById('ep-ig')?.value || c.ig;
+  apiPost('updateClient', c).then(() => { showToast('Client saved'); });
+}
+
+function markContacted(id) {
+  const c = state.clients.find(x=>x.id===id);
+  if (!c) return;
+  c.lastContact = new Date().toISOString().split('T')[0];
+  apiPost('updateClient', c);
+  updateAlerts();
+  renderPage(state.currentPage);
+  showToast('Marked as contacted');
+}
+
+function filterClients(segment) {
+  const tbody = document.getElementById('clients-tbody');
+  if (!tbody) return;
+  const rows = tbody.querySelectorAll('tr');
+  rows.forEach(r => {
+    if (!segment) { r.style.display = ''; return; }
+    r.style.display = r.textContent.includes(segment) ? '' : 'none';
   });
-
-  document.getElementById('detailBody').innerHTML = body;
-  document.getElementById('detailOverlay').classList.add('open');
-  document.getElementById('detailOverlay').scrollTop = 0;
 }
 
-function closeDetail() {
-  document.getElementById('detailOverlay').classList.remove('open');
-}
-
-// ── POLICIES ──────────────────────────────────────────────────────────────
+// ============================================================
+// POLICIES PAGE
+// ============================================================
 function renderPolicies() {
-  const insurers = ['All','Singlife','Income','FWD','Manulife'];
-  let html = `<div class="search-bar"><input class="search-input" placeholder="Search client or policy..." oninput="polSearch=this.value;renderPolList()" value="${polSearch}"/></div>`;
-  html += `<div class="filter-scroll">${insurers.map(i=>`<button class="filter-btn ${polFilter===i?'active':''}" onclick="polFilter='${i}';renderPolicies()">${i}</button>`).join('')}
-    <button class="filter-btn ${polFilter==='Due'?'active':''}" onclick="polFilter='Due';renderPolicies()">⚡ Due 90d</button>
-    <button class="filter-btn ${polFilter==='CG'?'active':''}" onclick="polFilter='CG';renderPolicies()">🛡 CG Soon</button>
-    <button class="filter-btn ${polFilter==='Paid'?'active':''}" onclick="polFilter='Paid';renderPolicies()">✓ Paid</button>
-  </div>`;
-  html += `<div id="polList"></div>`;
-  document.getElementById('tab-policies').innerHTML = html;
-  renderPolList();
-}
-
-function renderPolList() {
-  const today = new Date(); today.setHours(0,0,0,0);
-  const q = polSearch.toLowerCase();
-  let list = POLICIES_DATA.filter(p => {
-    if (q&&!p.client.toLowerCase().includes(q)&&!p.polId.toLowerCase().includes(q)&&!p.product.toLowerCase().includes(q)) return false;
-    if (polFilter==='All') return true;
-    if (['Singlife','Income','FWD','Manulife'].includes(polFilter)) return p.insurer===polFilter;
-    if (polFilter==='Paid') return isFullyPaid(p);
-    if (polFilter==='Due') { const next=nextPremiumDate(p.inception,p.freq); if(!next)return false; const d=Math.round((next-today)/86400000); return d>0&&d<=90; }
-    if (polFilter==='CG') { if(!p.product.includes('Flexi Life Income II'))return false; const d=Math.round((cgDate(p.inception)-today)/86400000); return d>0&&d<=180; }
-    return true;
-  });
-
-  let html = `<div class="sub" style="margin-bottom:8px">${list.length} policies</div>`;
-  list.forEach(p => {
-    const fp = isFullyPaid(p);
-    const isCG = p.product.includes('Flexi Life Income II');
-    const next = !fp&&p.freq!=='Single' ? nextPremiumDate(p.inception,p.freq) : null;
-    const daysToP = next ? Math.round((next-today)/86400000) : null;
-    const daysToC = isCG ? Math.round((cgDate(p.inception)-today)/86400000) : null;
-    html += `<div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
-        <div style="flex:1;min-width:0">
-          <div class="name" style="font-size:14px;cursor:pointer" onclick="openClient('${p.clientId}')">${p.client} ›</div>
-          <div class="sub" style="margin-top:2px">${p.insurer} · ${p.polId}</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:1px">${p.product}</div>
-        </div>
-        ${tag(fp?'✓ Paid':p.status, fp?'var(--green)':'var(--teal)')}
+  return `
+    <div class="section-header">
+      <div><div class="section-title">All Policies</div><div class="section-sub">${state.policies.length} policies across ${state.clients.length} clients</div></div>
+      <button class="btn btn-primary btn-sm" onclick="openAddPolicyModal()">+ Policy</button>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:16px">🔖 Singlife policies require backdate and actual signing date. Rows highlighted in yellow are incomplete.</div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Client</th><th>Insurer</th><th>Policy No.</th><th>Type</th><th>Annual Premium</th><th>Sum Assured</th><th>Status</th><th>Comm. Date</th><th>Backdate</th><th>Signed</th><th>Actions</th>
+          </tr></thead>
+          <tbody>
+            ${state.policies.map(p => {
+              const client = state.clients.find(c=>c.id===p.clientId);
+              const isSinglife = p.insurer === 'Singlife';
+              const needsDates = isSinglife && (!p.backdateDate || !p.actualSignDate);
+              return `<tr style="${needsDates?'background:#fffbeb':''}">
+                <td class="text-sm font-bold">${escHtml(client?.name||p.clientId||'—')}</td>
+                <td><span class="tag ${p.insurer==='AIA'?'tag-blue':p.insurer==='Singlife'?'tag-gold':'tag-gray'}">${escHtml(p.insurer||'')}</span></td>
+                <td class="text-sm">${escHtml(p.policyNo||'')}</td>
+                <td class="text-sm">${escHtml(p.policyType||'')}</td>
+                <td class="text-sm">${fmtMoney(p.annualPremium)}</td>
+                <td class="text-sm">${fmtMoney(p.sumAssured)}</td>
+                <td><span class="tag ${(p.status||'').toLowerCase()==='active'?'tag-green':'tag-gray'}">${escHtml(p.status||'')}</span></td>
+                <td class="text-sm">${fmtDate(p.commDate)}</td>
+                <td class="text-sm">${isSinglife ? (p.backdateDate ? fmtDate(p.backdateDate) : '<span style="color:var(--danger)">⚠ Missing</span>') : '—'}</td>
+                <td class="text-sm">${isSinglife ? (p.actualSignDate ? fmtDate(p.actualSignDate) : '<span style="color:var(--danger)">⚠ Missing</span>') : '—'}</td>
+                <td><button class="btn btn-outline btn-sm" onclick="editPolicy('${p.id}')">Edit</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
-      <div style="display:flex;gap:10px;margin-top:8px;flex-wrap:wrap;align-items:center">
-        <div class="money" style="font-size:13px">${fmt(p.ap)}${p.freq==='Single'?'':'/yr'}</div>
-        ${daysToP!==null?`<span style="font-size:11px;color:${daysToP<=30?'var(--red)':'var(--amber)'}">⚡ ${daysToP}d to premium</span>`:''}
-        ${isCG&&daysToC!==null?`<span style="font-size:11px;color:${daysToC<=0?'var(--green)':daysToC<=60?'var(--red)':'var(--amber)'}">🛡 ${daysToC<=0?'CG ✓':daysToC+'d to CG'}</span>`:''}
-      </div>
-      ${daysToP!==null&&daysToP<=90?`<div style="margin-top:8px"><button class="action-btn ${followedUp[p.polId]?'btn-ghost':'btn-amber'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUpPol('${p.polId}');event.stopPropagation()">
-        ${followedUp[p.polId]?'✓ Followed Up':'Mark Followed Up'}
-      </button></div>`:''}
     </div>`;
-  });
-  document.getElementById('polList').innerHTML = html;
 }
 
-function toggleFollowUpPol(key) {
-  followedUp[key] = !followedUp[key];
-  localStorage.setItem('sil_followedup', JSON.stringify(followedUp));
-  renderPolList();
+function editPolicy(id) {
+  const p = state.policies.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('modal-title').textContent = 'Edit Policy · ' + (p.policyNo||'');
+  document.getElementById('modal-body').innerHTML = `
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Insurer</div>
+        <select class="form-input" id="ep2-insurer">
+          ${['AIA','Singlife','Prudential','Great Eastern','NTUC Income','Manulife','AXA','Other'].map(s=>`<option ${p.insurer===s?'selected':''}>${s}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><div class="form-label">Policy No.</div><input class="form-input" id="ep2-pno" value="${escHtml(p.policyNo||'')}"></div>
+      <div class="form-group"><div class="form-label">Policy Type</div><input class="form-input" id="ep2-type" value="${escHtml(p.policyType||'')}"></div>
+      <div class="form-group"><div class="form-label">Status</div>
+        <select class="form-input" id="ep2-status">
+          ${['Active','Lapsed','Surrendered','Matured'].map(s=>`<option ${p.status===s?'selected':''}>${s}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><div class="form-label">Annual Premium (SGD)</div><input class="form-input" type="number" id="ep2-premium" value="${p.annualPremium||0}"></div>
+      <div class="form-group"><div class="form-label">Sum Assured (SGD)</div><input class="form-input" type="number" id="ep2-sa" value="${p.sumAssured||0}"></div>
+      <div class="form-group"><div class="form-label">Commencement Date</div><input class="form-input" type="date" id="ep2-comm" value="${p.commDate||''}"></div>
+      <div class="form-group"><div class="form-label">Client</div>
+        <select class="form-input" id="ep2-client">
+          ${state.clients.map(c=>`<option value="${c.id}" ${c.id===p.clientId?'selected':''}>${escHtml(c.name)}</option>`).join('')}
+        </select></div>
+    </div>
+    <div class="divider"></div>
+    <div class="section-title text-sm" style="margin-bottom:10px;color:var(--teal)">🟡 Singlife Dates</div>
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Backdate Date</div><input class="form-input" type="date" id="ep2-backdate" value="${p.backdateDate||''}"></div>
+      <div class="form-group"><div class="form-label">Actual Signing Date</div><input class="form-input" type="date" id="ep2-signdate" value="${p.actualSignDate||''}"></div>
+    </div>`;
+  state.modalSaveFn = () => {
+    p.insurer = document.getElementById('ep2-insurer').value;
+    p.policyNo = document.getElementById('ep2-pno').value;
+    p.policyType = document.getElementById('ep2-type').value;
+    p.status = document.getElementById('ep2-status').value;
+    p.annualPremium = parseFloat(document.getElementById('ep2-premium').value)||0;
+    p.sumAssured = parseFloat(document.getElementById('ep2-sa').value)||0;
+    p.commDate = document.getElementById('ep2-comm').value;
+    p.clientId = document.getElementById('ep2-client').value;
+    p.backdateDate = document.getElementById('ep2-backdate').value;
+    p.actualSignDate = document.getElementById('ep2-signdate').value;
+    apiPost('updatePolicy', p);
+    closeModal(); renderPage('policies'); showToast('Policy saved');
+  };
+  openModal();
 }
 
-// ── COLLABS ───────────────────────────────────────────────────────────────
+function editSinglifeDates(id) { editPolicy(id); }
+
+// ============================================================
+// AUM PAGE
+// ============================================================
+function renderAUM() {
+  const total = calcTotalAUM();
+  let liquid=0, nonLiquid=0, estate=0, living=0;
+  for (const c of state.clients) {
+    const aum = calcClientAUM(c.id);
+    liquid += aum.liquid; nonLiquid += aum.nonLiquid; estate += aum.estate; living += aum.living;
+  }
+  return `
+    <div class="alert alert-info" style="margin-bottom:16px">📊 AUM is calculated from policy premium data in the app — not from Sheet column M. Values represent annualised premiums by product type.</div>
+    <div class="grid-4" style="margin-bottom:20px">
+      <div class="stat-card"><div class="stat-label">Total AUM</div><div class="stat-value" style="font-size:1.4rem">${fmtMoney(total)}</div></div>
+      <div class="stat-card"><div class="stat-label">Liquid (ILP/Endow)</div><div class="stat-value" style="font-size:1.4rem;color:var(--teal)">${fmtMoney(liquid)}</div></div>
+      <div class="stat-card"><div class="stat-label">Non-Liquid (WL/UL)</div><div class="stat-value" style="font-size:1.4rem;color:var(--navy)">${fmtMoney(nonLiquid)}</div></div>
+      <div class="stat-card"><div class="stat-label">Estate (Term SA)</div><div class="stat-value" style="font-size:1.4rem;color:var(--gold)">${fmtMoney(estate)}</div></div>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">AUM Mix</div>
+        <div class="chart-container"><canvas id="aum-pie"></canvas></div>
+        <div class="pie-legend" id="aum-pie-legend"></div>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">AUM by Client</div>
+        <div class="chart-container"><canvas id="aum-bar"></canvas></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="section-title" style="margin-bottom:12px">Client AUM Breakdown</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Client</th><th>Liquid</th><th>Non-Liquid</th><th>Estate</th><th>Living</th><th>Total</th></tr></thead>
+          <tbody>
+            ${state.clients.map(c => {
+              const aum = calcClientAUM(c.id);
+              return `<tr>
+                <td class="font-bold">${escHtml(c.name)}</td>
+                <td class="text-sm">${fmtMoney(aum.liquid)}</td>
+                <td class="text-sm">${fmtMoney(aum.nonLiquid)}</td>
+                <td class="text-sm">${fmtMoney(aum.estate)}</td>
+                <td class="text-sm">${fmtMoney(aum.living)}</td>
+                <td class="font-bold">${fmtMoney(aum.total)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function renderAUMCharts() {
+  let liquid=0, nonLiquid=0, estate=0, living=0;
+  for (const c of state.clients) {
+    const a = calcClientAUM(c.id);
+    liquid+=a.liquid; nonLiquid+=a.nonLiquid; estate+=a.estate; living+=a.living;
+  }
+  const pieCtx = document.getElementById('aum-pie');
+  if (pieCtx) {
+    if (state.charts['aum-pie']) state.charts['aum-pie'].destroy();
+    state.charts['aum-pie'] = new Chart(pieCtx, {
+      type:'doughnut',
+      data:{ labels:['Liquid','Non-Liquid','Estate','Living'], datasets:[{ data:[liquid,nonLiquid,estate,living], backgroundColor:['#1a7a6e','#0d1b2a','#c9a84c','#4a90d9'], borderWidth:3, borderColor:'#fff' }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } } }
+    });
+    const leg = document.getElementById('aum-pie-legend');
+    if (leg) leg.innerHTML = [['Liquid','#1a7a6e',liquid],['Non-Liquid','#0d1b2a',nonLiquid],['Estate','#c9a84c',estate],['Living','#4a90d9',living]].map(([l,c,v])=>`<div class="pie-legend-item"><div class="pie-dot" style="background:${c}"></div>${l}: ${fmtMoney(v)}</div>`).join('');
+  }
+  const barCtx = document.getElementById('aum-bar');
+  if (barCtx) {
+    if (state.charts['aum-bar']) state.charts['aum-bar'].destroy();
+    state.charts['aum-bar'] = new Chart(barCtx, {
+      type:'bar',
+      data:{ labels:state.clients.map(c=>c.name.split(' ')[0]), datasets:[{ data:state.clients.map(c=>calcClientAUM(c.id).total), backgroundColor:'#1a7a6e80', borderColor:'#1a7a6e', borderWidth:2 }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{display:false} }, scales:{ y:{ beginAtZero:true, ticks:{callback:v=>'S$'+Number(v/1000).toFixed(0)+'k'} } } }
+    });
+  }
+}
+
+// ============================================================
+// COLLABS PAGE
+// ============================================================
 function renderCollabs() {
-  const types = ['All','Lawyer','Banker','Accountant','Associate','Network','Referral'];
-  const typeColors = {Lawyer:'var(--purple)',Banker:'var(--teal)',Accountant:'var(--amber)',Associate:'var(--blue)',Network:'var(--green)',Referral:'var(--orange)'};
-  let html = `<div class="search-bar"><input class="search-input" placeholder="Search collab..." oninput="collabSearch=this.value;renderCollabList()" value="${collabSearch}"/></div>`;
-  html += `<div class="filter-scroll">${types.map(t=>`<button class="filter-btn ${collabFilter===t?'active':''}" onclick="collabFilter='${t}';renderCollabs()">${t}</button>`).join('')}
-    <button class="filter-btn ${collabFilter==='SG'?'active':''}" onclick="collabFilter='SG';renderCollabs()">🇸🇬 SG</button>
-    <button class="filter-btn ${collabFilter==='BKK'?'active':''}" onclick="collabFilter='BKK';renderCollabs()">🇹🇭 BKK</button>
-  </div>`;
-  html += `<div id="collabList"></div>`;
-  document.getElementById('tab-collabs').innerHTML = html;
-  renderCollabList();
-}
-
-function renderCollabList() {
-  const typeColors = {Lawyer:'var(--purple)',Banker:'var(--teal)',Accountant:'var(--amber)',Associate:'var(--blue)',Network:'var(--green)',Referral:'var(--orange)'};
-  const q = collabSearch.toLowerCase();
-  const list = COLLABS_DATA.filter(c => {
-    if (q&&!c.name.toLowerCase().includes(q)) return false;
-    if (collabFilter==='All') return true;
-    if (collabFilter==='SG') return c.loc.includes('SG');
-    if (collabFilter==='BKK') return c.loc.includes('BKK');
-    return c.type===collabFilter;
-  });
-
-  let html = `<div class="sub" style="margin-bottom:8px">${list.length} collabs</div>`;
-  list.forEach(c => {
-    html += `<div class="card">
-      <div class="row" style="align-items:flex-start">
-        <div class="col" style="flex:1;min-width:0">
-          <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-            <div class="name" style="font-size:14px">${c.name}</div>
-          </div>
-          <div style="margin-top:5px;display:flex;gap:5px;flex-wrap:wrap">
-            ${tag(c.type,typeColors[c.type]||'var(--muted)')}
-            ${tag(c.loc,'var(--muted)')}
-            ${c.met?tag('Met '+new Date(c.met).toLocaleDateString('en-GB',{day:'numeric',month:'short'}),'var(--blue)'):''}
-          </div>
-          <div class="sub" style="margin-top:6px;font-size:11px">${c.summary}</div>
-          <div style="margin-top:6px;padding:6px 8px;background:#0a1520;border-radius:6px;border-left:2px solid var(--amber)">
-            <div style="font-size:11px;color:var(--amber)">→ ${c.action}</div>
-          </div>
-        </div>
-      </div>
-    </div>`;
-  });
-  document.getElementById('collabList').innerHTML = html;
-}
-
-// ── DASHBOARD ─────────────────────────────────────────────────────────────
-function renderDashboard() {
-  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
-  const cats = {C1:0,C2:0,C3:0,C4:0};
-  CLIENTS_DATA.forEach(c=>cats[c.cat]++);
-  const insurerAP = {};
-  POLICIES_DATA.forEach(p=>{ insurerAP[p.insurer]=(insurerAP[p.insurer]||0)+p.ap; });
-
-  let html = `<div class="section-title">Overview</div>
-  <div class="grid-2">
-    ${[['Total AUM','SGD '+fmtK(totalAUM),'var(--gold)'],
-       ['Clients','59','var(--teal)'],
-       ['Policies',POLICIES_DATA.length+'','var(--purple)'],
-       ['Collabs',COLLABS_DATA.length+'','var(--blue)'],
-       ['Fully Paid',POLICIES_DATA.filter(p=>isFullyPaid(p)).length+'','var(--green)'],
-       ['C1 Clients',cats.C1+'','var(--purple)']
-    ].map(([l,v,col])=>`<div class="stat-box"><div class="badge" style="color:${col}">${v}</div><div class="sub" style="margin-top:2px">${l}</div></div>`).join('')}
-  </div>
-
-  <div class="section-title">Client Category</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
-    ${[['C1','>$200k',cats.C1,'var(--purple)'],['C2','>$100k',cats.C2,'var(--teal)'],['C3','>$50k',cats.C3,'var(--amber)'],['C4','Rest',cats.C4,'var(--muted)']].map(([c,desc,n,col])=>`
-      <div style="background:var(--surface);border:1px solid ${col}33;border-radius:10px;padding:12px 16px;flex:1;min-width:80px;text-align:center">
-        <div class="badge" style="color:${col}">${n}</div>
-        <div style="color:${col};font-size:12px;font-weight:700;margin-top:2px">${c}</div>
-        <div class="sub" style="font-size:10px">${desc}</div>
-      </div>`).join('')}
-  </div>
-
-  <div class="section-title">By Insurer</div>
-  <div style="margin-bottom:16px">
-    ${Object.entries(insurerAP).map(([ins,ap])=>`
-      <div class="card" style="margin-bottom:6px;padding:10px 14px">
-        <div class="row">
-          <div style="display:flex;align-items:center;gap:8px">
-            <div style="width:4px;height:28px;background:${insurerColor(ins)};border-radius:2px"></div>
-            <div>
-              <div style="font-weight:600;font-size:13px">${ins}</div>
-              <div class="sub">${POLICIES_DATA.filter(p=>p.insurer===ins).length} policies · ${CLIENTS_DATA.filter(c=>POLICIES_DATA.some(p=>p.clientId===c.id&&p.insurer===ins)).length} clients</div>
+  return `
+    <div class="section-header">
+      <div><div class="section-title">Collaboration Partners</div><div class="section-sub">${state.collabs.length} partners · Monthly follow-up tracking</div></div>
+      <button class="btn btn-primary btn-sm" onclick="openAddCollabModal()">+ Collab</button>
+    </div>
+    <div class="alert alert-info" style="margin-bottom:16px">📅 Follow-up dates are tracked with date + note log. Overdue partners shown in red.</div>
+    ${state.collabs.map(c => {
+      const days = c.nextFollowup ? daysDiff(c.nextFollowup) : null;
+      const overdue = days !== null && days < 0;
+      const soon = days !== null && days >= 0 && days <= 7;
+      const notes = state.notes['col-'+c.id] || [];
+      return `<div class="card" style="margin-bottom:12px;border-left:4px solid ${overdue?'var(--danger)':soon?'var(--warn)':'var(--border)'}">
+        <div style="display:flex;align-items:flex-start;gap:14px">
+          <div class="avatar" style="background:var(--teal);color:#fff">${(c.name||'?')[0]}</div>
+          <div style="flex:1">
+            <div class="flex items-center gap-2">
+              <span class="font-bold">${escHtml(c.name)}</span>
+              <span class="tag ${c.status==='Active'?'tag-green':c.status==='Warm'?'tag-yellow':'tag-gray'}">${escHtml(c.status||'')}</span>
+            </div>
+            <div class="text-sm text-muted">${escHtml(c.role||'')} · ${escHtml(c.company||'')}</div>
+            <div class="text-sm mt-1">Last contact: <strong>${fmtDate(c.lastContact)}</strong> · Next: <span class="${overdue?'date-chip overdue':soon?'date-chip soon':'date-chip'}">${fmtDate(c.nextFollowup)}</span></div>
+            
+            <div style="margin-top:10px">
+              <div class="text-sm font-bold text-muted" style="margin-bottom:4px">Contact Log</div>
+              <div style="max-height:100px;overflow-y:auto">
+                ${notes.length===0?'<div class="text-sm text-muted">No log entries.</div>':notes.map(n=>`<div class="note-entry"><div class="note-meta">${fmtDatetime(n.ts)}</div><div class="text-sm">${escHtml(n.text)}</div></div>`).join('')}
+              </div>
+              <div style="display:flex;gap:6px;margin-top:6px">
+                <input type="text" class="form-input" id="cnote-${c.id}" placeholder="Log contact note..." style="flex:1;font-size:0.78rem">
+                <input type="date" class="form-input" id="cdate-${c.id}" style="width:140px">
+                <button class="btn btn-primary btn-sm" onclick="logCollabContactWithNote('${c.id}')">Log</button>
+              </div>
             </div>
           </div>
-          <div class="money" style="font-size:13px">SGD ${fmtK(ap)}</div>
+          <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+            <button class="btn btn-outline btn-sm" onclick="editCollab('${c.id}')">Edit</button>
+            <button class="btn btn-outline btn-sm" onclick="logCollabContact('${c.id}')">Mark Contacted</button>
+          </div>
         </div>
-      </div>`).join('')}
-  </div>
-
-  <div class="section-title">Product Types (Extensible)</div>
-  <div class="card" style="border-color:var(--teal)33">
-    <div style="font-size:12px;color:var(--muted);line-height:1.8">
-      Current: Singlife · Income · FWD · Manulife<br>
-      <span style="color:var(--teal)">Ready to add:</span> iFast Global Bank · UOB Kay Hian Structured Notes · iFast Global Trust · Precepts Trustee<br>
-      <span style="color:var(--blue)">Future:</span> Portfolio Analysis · Holdings · Performance Tracking
-    </div>
-  </div>
-
-  <div class="section-title">Google Sheets Live Sync</div>
-  <div class="card" style="border-color:var(--teal)33">
-    <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:10px">
-      Connected via Google Apps Script — Sheet stays <span style="color:var(--green)">private</span><br>
-      Last sync: <span style="color:var(--teal)" id="dashLastSync">${lastSyncTime ? lastSyncTime.toLocaleTimeString('en-SG') : 'Not yet synced'}</span><br>
-      <span style="font-size:10px">Data updates automatically when you tap ↻ Sync in the header</span>
-    </div>
-    <button class="action-btn btn-teal" style="font-size:12px" onclick="syncData()">↻ Sync Now</button>
-  </div>`;
-
-  document.getElementById('tab-dashboard').innerHTML = html;
+      </div>`;
+    }).join('')}`;
 }
 
-// ── INIT ──────────────────────────────────────────────────────────────────
-renderHome();
-// Auto-sync on load
-syncData();
+function logCollabContact(id) {
+  const c = state.collabs.find(x=>x.id===id);
+  if (!c) return;
+  c.lastContact = new Date().toISOString().split('T')[0];
+  const d = new Date(); d.setMonth(d.getMonth()+1);
+  c.nextFollowup = d.toISOString().split('T')[0];
+  addNote('col-'+id, 'Contacted — no specific note.');
+  apiPost('updateCollab', c);
+  renderPage('collabs'); showToast('Contact logged');
+}
+
+function logCollabContactWithNote(id) {
+  const c = state.collabs.find(x=>x.id===id);
+  if (!c) return;
+  const note = document.getElementById('cnote-'+id)?.value.trim();
+  const date = document.getElementById('cdate-'+id)?.value || new Date().toISOString().split('T')[0];
+  if (!note) { showToast('Please enter a note', 'warn'); return; }
+  c.lastContact = date;
+  const d = new Date(date); d.setMonth(d.getMonth()+1);
+  c.nextFollowup = d.toISOString().split('T')[0];
+  addNote('col-'+id, note);
+  apiPost('updateCollab', c);
+  renderPage('collabs'); showToast('Contact logged with note');
+}
+
+// ============================================================
+// CIMB PIPELINE
+// ============================================================
+function renderPipeline() {
+  const daysLeft = lockDaysRemaining();
+  const progress = Math.max(0, 100 - Math.round(daysLeft / 730 * 100));
+  return `
+    <div class="lock-banner">
+      <div class="lock-icon">🔒</div>
+      <div style="flex:1">
+        <div style="font-size:0.8rem;opacity:0.7;margin-bottom:4px">Non-Solicitation Lock</div>
+        <div class="lock-countdown">${daysLeft} days remaining</div>
+        <div style="font-size:0.78rem;opacity:0.7">Until 3 March 2027 · ${state.pipeline.length.toLocaleString()} / 2,230 contacts</div>
+        <div class="progress-bar" style="margin-top:10px"><div class="progress-fill" style="width:${progress}%;background:var(--gold)"></div></div>
+        <div style="font-size:0.7rem;opacity:0.5;margin-top:4px">Lock ${progress}% elapsed</div>
+      </div>
+    </div>
+
+    <div class="alert alert-warn" style="margin-bottom:16px">
+      ⚠️ <strong>Non-Solicitation Active.</strong> Do not solicit CIMB contacts to purchase insurance until 3 Mar 2027. Monthly WhatsApp nudges (non-insurance, relationship only) are permitted after lock expires.
+    </div>
+
+    <div class="section-header">
+      <div><div class="section-title">CIMB Contacts</div><div class="section-sub">${state.pipeline.length} loaded · Full 2,230 to sync from Sheet</div></div>
+      <div style="display:flex;gap:8px">
+        <select class="form-input btn-sm" style="width:130px" onchange="filterPipeline(this.value)">
+          <option value="">All</option><option>Priority</option><option>Warm</option><option>Cold</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="syncPipeline()">↻ Sync Sheet</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>Category</th><th>Last WA Nudge</th><th>Notes</th><th>Actions</th></tr></thead>
+          <tbody id="pipeline-tbody">
+            ${state.pipeline.map(p => `<tr>
+              <td class="text-sm text-muted">${escHtml(p.id)}</td>
+              <td class="font-bold text-sm">${escHtml(p.name||'—')}</td>
+              <td class="text-sm">${escHtml(p.phone||'—')}</td>
+              <td><span class="tag ${p.category==='Priority'?'tag-gold':p.category==='Warm'?'tag-yellow':'tag-gray'}">${escHtml(p.category||'—')}</span></td>
+              <td class="text-sm">${p.lastNudge ? fmtDate(p.lastNudge) : '<span class="text-muted">Never</span>'}</td>
+              <td class="text-sm" style="max-width:120px">${escHtml(p.notes||'')}</td>
+              <td><button class="btn btn-outline btn-sm" onclick="editPipelineContact('${p.id}')">Edit</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+}
+
+function filterPipeline(cat) {
+  document.querySelectorAll('#pipeline-tbody tr').forEach(r => {
+    r.style.display = !cat || r.textContent.includes(cat) ? '' : 'none';
+  });
+}
+
+function syncPipeline() { showToast('Syncing CIMB Pipeline from Sheet…'); apiFetch('syncPipeline').then(()=>showToast('Sync complete')); }
+
+function editPipelineContact(id) {
+  const p = state.pipeline.find(x=>x.id===id);
+  if (!p) return;
+  document.getElementById('modal-title').textContent = 'Edit Contact · ' + p.name;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><div class="form-label">Name</div><input class="form-input" id="cp-name" value="${escHtml(p.name||'')}"></div>
+    <div class="form-group"><div class="form-label">Phone</div><input class="form-input" id="cp-phone" value="${escHtml(p.phone||'')}"></div>
+    <div class="form-group"><div class="form-label">Category</div>
+      <select class="form-input" id="cp-cat">${['Priority','Warm','Cold'].map(s=>`<option ${p.category===s?'selected':''}>${s}</option>`).join('')}</select></div>
+    <div class="form-group"><div class="form-label">Notes</div><textarea class="form-input" id="cp-notes">${escHtml(p.notes||'')}</textarea></div>
+    <div class="form-group"><div class="form-label">Last WA Nudge</div><input class="form-input" type="date" id="cp-nudge" value="${p.lastNudge||''}"></div>`;
+  state.modalSaveFn = () => {
+    p.name = document.getElementById('cp-name').value;
+    p.phone = document.getElementById('cp-phone').value;
+    p.category = document.getElementById('cp-cat').value;
+    p.notes = document.getElementById('cp-notes').value;
+    p.lastNudge = document.getElementById('cp-nudge').value;
+    apiPost('updatePipeline', p); closeModal(); renderPage('pipeline'); showToast('Contact updated');
+  };
+  openModal();
+}
+
+// ============================================================
+// IG NETWORK
+// ============================================================
+function renderIG() {
+  return `
+    <div class="section-header">
+      <div><div class="section-title">IG Network</div><div class="section-sub">594 mutual follows · Track, convert, note</div></div>
+      <div style="display:flex;gap:8px">
+        <select class="form-input btn-sm" style="width:140px" onchange="filterIG(this.value)">
+          <option value="">All</option><option value="converted">Converted</option><option value="new">Not Yet</option>
+        </select>
+        <button class="btn btn-outline btn-sm" onclick="syncIG()">↻ Sync</button>
+      </div>
+    </div>
+    <div class="ig-grid" id="ig-grid">
+      ${state.ig.map(u => `
+        <div class="ig-card" onclick="openIGPanel('${u.id}')">
+          <div class="ig-avatar">${(u.handle||'?')[1]?.toUpperCase()||'?'}</div>
+          <div class="text-sm font-bold" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(u.handle||'')}</div>
+          <div class="text-sm text-muted" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(u.name||'')}</div>
+          ${u.converted ? '<span class="tag tag-green" style="margin-top:4px">✓ Client</span>' : ''}
+        </div>`).join('')}
+      ${state.ig.length < 594 ? `<div class="ig-card" style="border-style:dashed;opacity:0.5;cursor:default;grid-column:span 2"><div style="padding:20px;text-align:center"><div class="text-sm text-muted">+${594-state.ig.length} more contacts</div><div class="text-sm text-muted">Sync full list from Sheet</div></div></div>` : ''}
+    </div>`;
+}
+
+function filterIG(val) {
+  document.querySelectorAll('#ig-grid .ig-card').forEach(c => {
+    if (!val) { c.style.display = ''; return; }
+    const hasConverted = c.querySelector('.tag-green');
+    if (val === 'converted') c.style.display = hasConverted ? '' : 'none';
+    else c.style.display = !hasConverted ? '' : 'none';
+  });
+}
+
+function syncIG() { showToast('Syncing IG Network…'); }
+
+function openIGPanel(id) {
+  const u = state.ig.find(x=>x.id===id);
+  if (!u) return;
+  const panel = document.getElementById('side-panel');
+  panel.innerHTML = `
+    <div class="side-panel-header" style="background:linear-gradient(135deg,#833ab4,#e1306c)">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div class="ig-avatar" style="width:52px;height:52px;font-size:1.4rem">${(u.handle||'?')[1]?.toUpperCase()||'?'}</div>
+        <div>
+          <div style="font-family:'DM Serif Display',serif;font-size:1.3rem">${escHtml(u.handle||'')}</div>
+          <div style="font-size:0.8rem;opacity:0.7">${escHtml(u.name||'')} · ${u.converted?'✓ Converted to client':'Not yet converted'}</div>
+        </div>
+      </div>
+      <button onclick="closePanel()" style="background:none;border:none;color:#fff;font-size:1.2rem;cursor:pointer;margin-top:8px">✕</button>
+    </div>
+    <div class="side-panel-body">
+      <div class="form-group"><div class="form-label">Handle</div><input class="form-input" id="ig-handle" value="${escHtml(u.handle||'')}"></div>
+      <div class="form-group"><div class="form-label">Full Name</div><input class="form-input" id="ig-name" value="${escHtml(u.name||'')}"></div>
+      <div class="form-group"><div class="form-label">Converted to Client?</div>
+        <select class="form-input" id="ig-conv"><option value="0" ${!u.converted?'selected':''}>No</option><option value="1" ${u.converted?'selected':''}>Yes</option></select></div>
+      <button class="btn btn-primary w-full" onclick="saveIG('${id}')">Save</button>
+      <hr class="divider">
+      <div class="section-title text-sm" style="margin-bottom:10px">Notes</div>
+      ${renderNotes('ig-'+id)}
+    </div>`;
+  document.getElementById('panel-overlay').classList.remove('hidden');
+  panel.classList.remove('hidden');
+}
+
+function saveIG(id) {
+  const u = state.ig.find(x=>x.id===id);
+  if (!u) return;
+  u.handle = document.getElementById('ig-handle')?.value || u.handle;
+  u.name = document.getElementById('ig-name')?.value || u.name;
+  u.converted = document.getElementById('ig-conv')?.value === '1';
+  apiPost('updateIG', u); showToast('Saved');
+}
+
+// ============================================================
+// WEEKLY REVIEW
+// ============================================================
+function renderWeekly() {
+  return `
+    <div class="section-header"><div class="section-title">Weekly Review</div></div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">This Week's Activity</div>
+        <div class="form-group"><div class="form-label">New Clients</div><input class="form-input" type="number" placeholder="0" id="wr-newclients"></div>
+        <div class="form-group"><div class="form-label">Policies Submitted</div><input class="form-input" type="number" placeholder="0" id="wr-policies"></div>
+        <div class="form-group"><div class="form-label">Client Meetings</div><input class="form-input" type="number" placeholder="0" id="wr-meetings"></div>
+        <div class="form-group"><div class="form-label">Prospects Contacted</div><input class="form-input" type="number" placeholder="0" id="wr-prospects"></div>
+        <div class="form-group"><div class="form-label">Week Ending</div><input class="form-input" type="date" id="wr-date"></div>
+        <div class="form-group"><div class="form-label">Notes</div><textarea class="form-input" id="wr-notes" placeholder="Key wins, challenges, priorities for next week..."></textarea></div>
+        <button class="btn btn-primary w-full" onclick="saveWeekly()">Save Weekly Review</button>
+      </div>
+      <div class="card">
+        <div class="section-title" style="margin-bottom:12px">Performance Snapshot</div>
+        <div class="stat-card" style="margin-bottom:10px"><div class="stat-label">Active Clients</div><div class="stat-value">${state.clients.length}</div></div>
+        <div class="stat-card" style="margin-bottom:10px"><div class="stat-label">Active Policies</div><div class="stat-value">${state.policies.filter(p=>(p.status||'').toLowerCase()==='active').length}</div></div>
+        <div class="stat-card" style="margin-bottom:10px"><div class="stat-label">Clients Needing Follow-up</div><div class="stat-value" style="color:var(--danger)">${state.clients.filter(c=>daysAgo(c.lastContact)>=30).length}</div></div>
+        <div class="stat-card"><div class="stat-label">Collab Partners</div><div class="stat-value">${state.collabs.length}</div></div>
+      </div>
+    </div>`;
+}
+
+function saveWeekly() {
+  const data = {
+    date: document.getElementById('wr-date')?.value,
+    newClients: document.getElementById('wr-newclients')?.value,
+    policies: document.getElementById('wr-policies')?.value,
+    meetings: document.getElementById('wr-meetings')?.value,
+    prospects: document.getElementById('wr-prospects')?.value,
+    notes: document.getElementById('wr-notes')?.value,
+  };
+  apiPost('saveWeekly', data).then(()=>showToast('Weekly review saved to Sheet'));
+}
+
+// ============================================================
+// ADD MODALS
+// ============================================================
+function openAddModal() {
+  if (state.currentPage === 'clients') openAddClientModal();
+  else if (state.currentPage === 'policies') openAddPolicyModal();
+  else if (state.currentPage === 'collabs') openAddCollabModal();
+  else openAddClientModal();
+}
+
+function openAddClientModal() {
+  document.getElementById('modal-title').textContent = 'Add Client';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Full Name *</div><input class="form-input" id="ac-name" placeholder="e.g. Tan Wei Ming"></div>
+      <div class="form-group"><div class="form-label">Phone</div><input class="form-input" id="ac-phone" placeholder="+65 9xxx xxxx"></div>
+      <div class="form-group"><div class="form-label">Email</div><input class="form-input" id="ac-email" type="email"></div>
+      <div class="form-group"><div class="form-label">Date of Birth</div><input class="form-input" id="ac-dob" type="date"></div>
+    </div>
+    <div class="form-group"><div class="form-label">Address</div><textarea class="form-input" id="ac-address" rows="2" placeholder="Block/Unit, Street, Postal Code"></textarea></div>
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Segment</div>
+        <select class="form-input" id="ac-segment"><option>Mass</option><option>Affluent</option><option>HNW</option></select></div>
+      <div class="form-group"><div class="form-label">IG Handle</div><input class="form-input" id="ac-ig" placeholder="@handle"></div>
+    </div>`;
+  state.modalSaveFn = () => {
+    const name = document.getElementById('ac-name').value.trim();
+    if (!name) { showToast('Name is required','warn'); return; }
+    const c = {
+      id:'C'+Date.now(), name, phone:document.getElementById('ac-phone').value,
+      email:document.getElementById('ac-email').value, dob:document.getElementById('ac-dob').value,
+      address:document.getElementById('ac-address').value, segment:document.getElementById('ac-segment').value,
+      ig:document.getElementById('ac-ig').value, lastContact:new Date().toISOString().split('T')[0]
+    };
+    state.clients.push(c); apiPost('addClient', c);
+    closeModal(); renderPage('clients'); showToast('Client added');
+  };
+  openModal();
+}
+
+function openAddPolicyModal(clientId) {
+  document.getElementById('modal-title').textContent = 'Add Policy';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="form-group"><div class="form-label">Client *</div>
+      <select class="form-input" id="ap-client">
+        ${state.clients.map(c=>`<option value="${c.id}" ${c.id===clientId?'selected':''}>${escHtml(c.name)}</option>`).join('')}
+      </select></div>
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Insurer *</div>
+        <select class="form-input" id="ap-insurer">
+          ${['AIA','Singlife','Prudential','Great Eastern','NTUC Income','Manulife','AXA','Other'].map(s=>`<option>${s}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><div class="form-label">Policy No.</div><input class="form-input" id="ap-pno"></div>
+      <div class="form-group"><div class="form-label">Policy Type</div>
+        <select class="form-input" id="ap-type">
+          ${['Whole Life','Term','ILP','Endowment','Universal Life','CI','PA','Shield'].map(s=>`<option>${s}</option>`).join('')}
+        </select></div>
+      <div class="form-group"><div class="form-label">Status</div>
+        <select class="form-input" id="ap-status"><option>Active</option><option>Lapsed</option></select></div>
+      <div class="form-group"><div class="form-label">Annual Premium (SGD)</div><input class="form-input" type="number" id="ap-prem" placeholder="0"></div>
+      <div class="form-group"><div class="form-label">Sum Assured (SGD)</div><input class="form-input" type="number" id="ap-sa" placeholder="0"></div>
+      <div class="form-group"><div class="form-label">Commencement Date</div><input class="form-input" type="date" id="ap-comm"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="text-sm font-bold" style="color:var(--teal);margin-bottom:8px">Singlife Only</div>
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Backdate Date</div><input class="form-input" type="date" id="ap-back"></div>
+      <div class="form-group"><div class="form-label">Actual Signing Date</div><input class="form-input" type="date" id="ap-sign"></div>
+    </div>`;
+  state.modalSaveFn = () => {
+    const p = {
+      id:'P'+Date.now(), clientId:document.getElementById('ap-client').value,
+      insurer:document.getElementById('ap-insurer').value, policyNo:document.getElementById('ap-pno').value,
+      policyType:document.getElementById('ap-type').value, status:document.getElementById('ap-status').value,
+      annualPremium:parseFloat(document.getElementById('ap-prem').value)||0,
+      sumAssured:parseFloat(document.getElementById('ap-sa').value)||0,
+      commDate:document.getElementById('ap-comm').value,
+      backdateDate:document.getElementById('ap-back').value,
+      actualSignDate:document.getElementById('ap-sign').value,
+    };
+    state.policies.push(p); apiPost('addPolicy', p);
+    closeModal(); renderPage('policies'); showToast('Policy added');
+  };
+  openModal();
+}
+
+function openAddCollabModal() {
+  document.getElementById('modal-title').textContent = 'Add Collab Partner';
+  document.getElementById('modal-body').innerHTML = `
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Name *</div><input class="form-input" id="acol-name"></div>
+      <div class="form-group"><div class="form-label">Role</div><input class="form-input" id="acol-role" placeholder="e.g. Mortgage Broker"></div>
+      <div class="form-group"><div class="form-label">Company</div><input class="form-input" id="acol-co"></div>
+      <div class="form-group"><div class="form-label">Status</div>
+        <select class="form-input" id="acol-status"><option>Active</option><option>Warm</option><option>Cold</option></select></div>
+      <div class="form-group"><div class="form-label">Next Follow-up</div><input class="form-input" type="date" id="acol-next"></div>
+    </div>`;
+  state.modalSaveFn = () => {
+    const name = document.getElementById('acol-name').value.trim();
+    if (!name) { showToast('Name required','warn'); return; }
+    const c = { id:'COL'+Date.now(), name, role:document.getElementById('acol-role').value, company:document.getElementById('acol-co').value, status:document.getElementById('acol-status').value, nextFollowup:document.getElementById('acol-next').value, lastContact: new Date().toISOString().split('T')[0] };
+    state.collabs.push(c); apiPost('addCollab', c);
+    closeModal(); renderPage('collabs'); showToast('Collab partner added');
+  };
+  openModal();
+}
+
+function editCollab(id) {
+  const c = state.collabs.find(x=>x.id===id);
+  if (!c) return;
+  document.getElementById('modal-title').textContent = 'Edit Collab · '+c.name;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="grid-2">
+      <div class="form-group"><div class="form-label">Name</div><input class="form-input" id="ec-name" value="${escHtml(c.name||'')}"></div>
+      <div class="form-group"><div class="form-label">Role</div><input class="form-input" id="ec-role" value="${escHtml(c.role||'')}"></div>
+      <div class="form-group"><div class="form-label">Company</div><input class="form-input" id="ec-co" value="${escHtml(c.company||'')}"></div>
+      <div class="form-group"><div class="form-label">Status</div>
+        <select class="form-input" id="ec-status">${['Active','Warm','Cold'].map(s=>`<option ${c.status===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      <div class="form-group"><div class="form-label">Last Contact</div><input class="form-input" type="date" id="ec-last" value="${c.lastContact||''}"></div>
+      <div class="form-group"><div class="form-label">Next Follow-up</div><input class="form-input" type="date" id="ec-next" value="${c.nextFollowup||''}"></div>
+    </div>`;
+  state.modalSaveFn = () => {
+    c.name=document.getElementById('ec-name').value; c.role=document.getElementById('ec-role').value;
+    c.company=document.getElementById('ec-co').value; c.status=document.getElementById('ec-status').value;
+    c.lastContact=document.getElementById('ec-last').value; c.nextFollowup=document.getElementById('ec-next').value;
+    apiPost('updateCollab',c); closeModal(); renderPage('collabs'); showToast('Saved');
+  };
+  openModal();
+}
+
+// ============================================================
+// MODAL HELPERS
+// ============================================================
+function openModal() { document.getElementById('modal-overlay').classList.remove('hidden'); }
+function closeModal(e) {
+  if (e && e.target !== document.getElementById('modal-overlay')) return;
+  document.getElementById('modal-overlay').classList.add('hidden');
+}
+function modalSave() { if (state.modalSaveFn) state.modalSaveFn(); }
+
+// ============================================================
+// EXPORT FOR CLAUDE
+// ============================================================
+function exportForClaude() {
+  const overdue60 = state.clients.filter(c=>daysAgo(c.lastContact)>=60).map(c=>c.name);
+  const missingDates = state.policies.filter(p=>p.insurer==='Singlife'&&(!p.backdateDate||!p.actualSignDate)).map(p=>p.policyNo);
+  const collabsDue = state.collabs.filter(c=>c.nextFollowup&&daysDiff(c.nextFollowup)<=7).map(c=>c.name);
+  
+  const payload = {
+    exportedAt: new Date().toISOString(),
+    summary: {
+      totalClients: state.clients.length,
+      activePolicies: state.policies.filter(p=>(p.status||'').toLowerCase()==='active').length,
+      estimatedAUM: fmtMoney(calcTotalAUM()),
+      cimbPipelineSize: 2230,
+      cimbLockDaysLeft: lockDaysRemaining(),
+      collabPartners: state.collabs.length,
+      igNetwork: 594,
+    },
+    alerts: {
+      overdue60Days: overdue60,
+      singlifeMissingDates: missingDates,
+      collabsDueSoon: collabsDue,
+    },
+    clients: state.clients.map(c => ({
+      ...c, aum: calcClientAUM(c.id), policies: state.policies.filter(p=>p.clientId===c.id), notes: getNotes(c.id)
+    })),
+    collabs: state.collabs.map(c => ({ ...c, log: getNotes('col-'+c.id) })),
+    pipeline: state.pipeline,
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `sil-network-export-${new Date().toISOString().split('T')[0]}.json`;
+  a.click(); URL.revokeObjectURL(url);
+  showToast('Exported for Claude ✓');
+}
+
+// ============================================================
+// GLOBAL SEARCH
+// ============================================================
+function globalSearch(q) {
+  if (!q.trim()) return;
+  const lower = q.toLowerCase();
+  const matchedClients = state.clients.filter(c => c.name?.toLowerCase().includes(lower) || c.phone?.includes(q) || c.email?.toLowerCase().includes(q));
+  if (matchedClients.length === 1) { showPage('clients'); setTimeout(()=>openClientPanel(matchedClients[0].id), 100); }
+}
+
+// ============================================================
+// TOAST
+// ============================================================
+function showToast(msg, type='success') {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:80px;right:28px;background:${type==='warn'?'#744210':'var(--navy)'};color:#fff;padding:10px 18px;border-radius:8px;font-size:0.82rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.2);animation:fadeIn 0.2s ease`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 3000);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadAll();
 </script>
 </body>
 </html>
