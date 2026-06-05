@@ -243,18 +243,91 @@ function tag(label, color) {
 }
 
 // ── SYNC FROM GOOGLE APPS SCRIPT ─────────────────────────────────────────
-async function syncData() {
+function syncData() {
   const el = document.getElementById('syncStatus');
   el.innerHTML = '↻ Syncing...';
   el.style.color = 'var(--amber)';
-  try {
-    const r = await fetch(APPS_SCRIPT_URL);
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const raw = await r.json();
 
-    // ── Parse Clients
-    // Google Sheets may return DOB as Date object or string
-    // Sheet structure: row 0=title, row 1=headers, row 2=note, rows 3+=data
+  // Use script tag trick to bypass CORS restriction
+  const callbackName = 'silNetworkCallback_' + Date.now();
+  const url = APPS_SCRIPT_URL + '&callback=' + callbackName;
+
+  window[callbackName] = function(raw) {
+    try {
+      if (raw === 'Unauthorised') throw new Error('Token rejected');
+      parseSheetData(raw);
+      lastSyncTime = new Date();
+      el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
+      el.style.color = 'var(--green)';
+      renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
+    } catch(e) {
+      el.innerHTML = '✗ ' + String(e.message).substring(0,25);
+      el.style.color = 'var(--red)';
+      showSyncError(e.message);
+    } finally {
+      delete window[callbackName];
+      const s = document.getElementById('sync_script_tag');
+      if (s) s.remove();
+    }
+  };
+
+  // Timeout fallback
+  setTimeout(() => {
+    if (window[callbackName]) {
+      delete window[callbackName];
+      // Fallback: try direct fetch
+      fetch(APPS_SCRIPT_URL)
+        .then(r => r.json())
+        .then(raw => {
+          parseSheetData(raw);
+          lastSyncTime = new Date();
+          el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
+          el.style.color = 'var(--green)';
+          renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
+        })
+        .catch(e => {
+          el.innerHTML = '✗ Timeout';
+          el.style.color = 'var(--red)';
+          showSyncError('Timeout — ' + e.message);
+        });
+    }
+  }, 8000);
+
+  const script = document.createElement('script');
+  script.id = 'sync_script_tag';
+  script.src = url;
+  script.onerror = () => {
+    delete window[callbackName];
+    // Try plain fetch as fallback
+    fetch(APPS_SCRIPT_URL)
+      .then(r => r.json())
+      .then(raw => {
+        parseSheetData(raw);
+        lastSyncTime = new Date();
+        el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
+        el.style.color = 'var(--green)';
+        renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
+      })
+      .catch(err => {
+        el.innerHTML = '✗ CORS error';
+        el.style.color = 'var(--red)';
+        showSyncError(err.message);
+      });
+  };
+  document.head.appendChild(script);
+}
+
+function showSyncError(msg) {
+  document.getElementById('tab-home').innerHTML = `
+    <div style="text-align:center;padding:40px 24px">
+      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+      <div style="color:var(--red);font-size:14px;font-weight:600;margin-bottom:8px">Sync Failed</div>
+      <div style="color:var(--muted);font-size:12px;font-family:monospace;background:#0a1520;padding:10px;border-radius:6px;margin-bottom:16px;word-break:break-all;text-align:left">${msg}</div>
+      <button class="action-btn btn-teal" onclick="syncData()" style="margin-bottom:10px">↻ Retry</button>
+    </div>`;
+}
+
+function parseSheetData(raw) {
     function parseDOB(val) {
       if (!val) return '';
       if (val instanceof Date) {
@@ -292,7 +365,7 @@ async function syncData() {
           email:       String(r[7]||'').trim(),
           address:     String(r[8]||'').trim(),
           area:        String(r[9]||'').trim(),
-          aum:         0, // calculated from policies below
+          aum:         0,
           cat:         'C4',
           notes:       String(r[13]||'').trim(),
           lastContact: String(r[14]||'').trim(),
@@ -305,7 +378,6 @@ async function syncData() {
       });
     }
 
-    // ── Parse Policies
     if (raw.policies && raw.policies.length > 2) {
       let dataStart = 2;
       for (let i = 0; i < Math.min(5, raw.policies.length); i++) {
@@ -316,26 +388,22 @@ async function syncData() {
       POLICIES_DATA.length = 0;
       rows.forEach(r => {
         const maxP = String(r[12]).trim();
-        const maxPNum = parseInt(maxP) || null;
-        const ap = parseFloat(String(r[8]).replace(/[^0-9.]/g,'')) || 0;
-        const sa = parseFloat(String(r[9]).replace(/[^0-9.]/g,'')) || 0;
         POLICIES_DATA.push({
           polId:     String(r[0]).trim(),
           clientId:  String(r[1]).trim(),
-          client:    String(r[2]).trim(),
-          insurer:   String(r[3]).trim(),
-          product:   String(r[4]).trim(),
-          status:    String(r[5]).trim(),
+          client:    String(r[2]||'').trim(),
+          insurer:   String(r[3]||'').trim(),
+          product:   String(r[4]||'').trim(),
+          status:    String(r[5]||'').trim(),
           inception: parseDOB(r[6]),
-          freq:      String(r[7]).trim(),
-          ap:        ap,
-          sa:        sa,
-          maxPay:    maxPNum,
+          freq:      String(r[7]||'').trim(),
+          ap:        parseFloat(String(r[8]||'0').replace(/[^0-9.]/g,'')) || 0,
+          sa:        parseFloat(String(r[9]||'0').replace(/[^0-9.]/g,'')) || 0,
+          maxPay:    /^\d+$/.test(maxP) ? parseInt(maxP) : null,
         });
       });
     }
 
-    // ── Parse Collabs
     if (raw.collabs && raw.collabs.length > 2) {
       let dataStart = 2;
       for (let i = 0; i < Math.min(5, raw.collabs.length); i++) {
@@ -345,75 +413,35 @@ async function syncData() {
       COLLABS_DATA.length = 0;
       rows.forEach(r => {
         COLLABS_DATA.push({
-          id:        String(r[0]).trim(),
-          name:      String(r[1]).trim(),
-          loc:       String(r[2]||'').trim(),
-          type:      String(r[3]||'').trim(),
-          met:       parseDOB(r[4]),
-          summary:   String(r[5]||'').trim(),
-          action:    String(r[6]||'').trim(),
-          lastTouch: String(r[7]||'').trim(),
-          platform:  String(r[8]||'').trim(),
-          notes:     String(r[9]||'').trim(),
+          id: String(r[0]).trim(), name: String(r[1]||'').trim(),
+          loc: String(r[2]||'').trim(), type: String(r[3]||'').trim(),
+          met: parseDOB(r[4]), summary: String(r[5]||'').trim(),
+          action: String(r[6]||'').trim(), lastTouch: String(r[7]||'').trim(),
+          platform: String(r[8]||'').trim(), notes: String(r[9]||'').trim(),
         });
       });
     }
 
-    // ── Recalculate AUM from policy data
-    // EXCLUDE policies assigned to 'CIMB' client ID (bank policies, not personal clients)
-    // Reassign CIMB bank policies to correct owners:
-    //   83445024 ($250,775) + 80411596 ($300,000) → SC-0047 Tan Bin
-    //   83609445 ($1,001,530) → SC-0060 Wang Jian (new client)
-    const POLICY_REASSIGN = {
-      '83445024': 'SC-0047',
-      '80411596': 'SC-0047',
-      '83609445': 'SC-0060',
-    };
-    const today2 = new Date(); today2.setHours(0,0,0,0);
-    function calcYearsPaid(inception, freq, maxPay) {
-      if (!inception || freq === 'Single') return 1;
-      const inc = new Date(inception); inc.setHours(0,0,0,0);
-      let paid = 0, d = new Date(inc);
-      while (d <= today2) { paid++; try { d.setFullYear(d.getFullYear()+1); } catch(e) { break; } }
-      return maxPay ? Math.min(paid, maxPay) : paid;
+    const POLICY_REASSIGN = {'83445024':'SC-0047','80411596':'SC-0047','83609445':'SC-0060'};
+    const _today = new Date(); _today.setHours(0,0,0,0);
+    function calcYP(inception, freq, maxPay) {
+      if (!inception || freq==='Single') return 1;
+      const inc = new Date(inception); if(isNaN(inc)) return 1;
+      let paid=0, d=new Date(inc);
+      while(d<=_today && paid<20){paid++; try{d.setFullYear(d.getFullYear()+1);}catch(e){break;}}
+      return maxPay ? Math.min(paid,maxPay) : paid;
     }
     const aumMap = {};
     POLICIES_DATA.forEach(p => {
-      // Skip CIMB bank client ID — reassign via map
-      let clientId = p.clientId === 'CIMB' ? (POLICY_REASSIGN[p.polId] || null) : p.clientId;
-      if (!clientId) return;
-      const yp = calcYearsPaid(p.inception, p.freq, p.maxPay);
-      aumMap[clientId] = (aumMap[clientId] || 0) + (p.ap * yp);
+      let cid = p.clientId==='CIMB' ? (POLICY_REASSIGN[p.polId]||null) : p.clientId;
+      if(!cid) return;
+      aumMap[cid] = (aumMap[cid]||0) + p.ap * calcYP(p.inception, p.freq, p.maxPay);
     });
-    // Add Wang Jian as client if not already present
-    if (!CLIENTS_DATA.find(c=>c.id==='SC-0060')) {
-      CLIENTS_DATA.push({id:'SC-0060',name:'Wang Jian',dob:'',age:null,gender:'Male',nationality:'China',mobile:'',email:'',address:'',area:'',aum:0,cat:'C4',notes:'CIMB bank policy holder — Singlife Flexi Life Income II $1,001,530 single premium',lastContact:'',nextAction:'',ig:'',fb:'',linkedin:'',wa:''});
-    }
-    CLIENTS_DATA.forEach(c => {
-      const aum = Math.round(aumMap[c.id] || 0);
-      c.aum = aum;
-      c.cat = aum>=200000?'C1':aum>=100000?'C2':aum>=50000?'C3':'C4';
-    });
-
-    lastSyncTime = new Date();
-    el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
-    el.style.color = 'var(--green)';
-    renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
-  } catch(e) {
-    el.innerHTML = '✗ ' + e.message.substring(0,20);
-    el.style.color = 'var(--red)';
-    console.error('Sync error:', e);
-    // Show error in home tab
-    const homeTab = document.getElementById('tab-home');
-    if (homeTab) homeTab.innerHTML = `<div style="text-align:center;padding:40px 24px">
-      <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-      <div style="color:var(--red);font-size:14px;font-weight:600;margin-bottom:8px">Sync Error</div>
-      <div style="color:var(--muted);font-size:12px;margin-bottom:4px">${e.message}</div>
-      <div style="color:var(--muted);font-size:11px;margin-bottom:20px">Check console for details</div>
-      <button class="action-btn btn-teal" onclick="syncData()">↻ Retry Sync</button>
-    </div>`;
-  }
-}
+    if(!CLIENTS_DATA.find(c=>c.id==='SC-0060'))
+      CLIENTS_DATA.push({id:'SC-0060',name:'Wang Jian',dob:'',age:null,gender:'Male',nationality:'China',mobile:'',email:'',address:'',area:'',aum:0,cat:'C4',notes:'CIMB bank policy holder — Singlife FLI2 $1M single premium',lastContact:'',nextAction:'',ig:'',fb:'',linkedin:'',wa:''});
+    CLIENTS_DATA.forEach(c => { const a=Math.round(aumMap[c.id]||0); c.aum=a; c.cat=a>=200000?'C1':a>=100000?'C2':a>=50000?'C3':'C4'; });
+    document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
+} // end parseSheetData
 
 // ── TAB NAVIGATION ────────────────────────────────────────────────────────
 function showTab(name, btn) {
