@@ -183,7 +183,6 @@ let COLLABS_DATA = [];
 // Non-CIMB phone contacts (671) — imported from synced contacts
 // These are NOT clients yet. Hints show likely network cluster.
 // cat: Industry/NS/Church/Family/Uncategorised | hint: location/network tags
-let COLLABS_DATA = [];
 
 // ── STATE ──────────────────────────────────────────────────────────────────
 let followedUp = JSON.parse(localStorage.getItem('sil_followedup') || '{}');
@@ -243,88 +242,38 @@ function tag(label, color) {
 }
 
 // ── SYNC FROM GOOGLE APPS SCRIPT ─────────────────────────────────────────
-function syncData() {
+async function syncData() {
   const el = document.getElementById('syncStatus');
   el.innerHTML = '↻ Syncing...';
   el.style.color = 'var(--amber)';
-
-  // Use script tag trick to bypass CORS restriction
-  const callbackName = 'silNetworkCallback_' + Date.now();
-  const url = APPS_SCRIPT_URL + '&callback=' + callbackName;
-
-  window[callbackName] = function(raw) {
-    try {
-      if (raw === 'Unauthorised') throw new Error('Token rejected');
-      parseSheetData(raw);
-      lastSyncTime = new Date();
-      el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
-      el.style.color = 'var(--green)';
-      renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
-    } catch(e) {
-      el.innerHTML = '✗ ' + String(e.message).substring(0,25);
-      el.style.color = 'var(--red)';
-      showSyncError(e.message);
-    } finally {
-      delete window[callbackName];
-      const s = document.getElementById('sync_script_tag');
-      if (s) s.remove();
-    }
-  };
-
-  // Timeout fallback
-  setTimeout(() => {
-    if (window[callbackName]) {
-      delete window[callbackName];
-      // Fallback: try direct fetch
-      fetch(APPS_SCRIPT_URL)
-        .then(r => r.json())
-        .then(raw => {
-          parseSheetData(raw);
-          lastSyncTime = new Date();
-          el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
-          el.style.color = 'var(--green)';
-          renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
-        })
-        .catch(e => {
-          el.innerHTML = '✗ Timeout';
-          el.style.color = 'var(--red)';
-          showSyncError('Timeout — ' + e.message);
-        });
-    }
-  }, 8000);
-
-  const script = document.createElement('script');
-  script.id = 'sync_script_tag';
-  script.src = url;
-  script.onerror = () => {
-    delete window[callbackName];
-    // Try plain fetch as fallback
-    fetch(APPS_SCRIPT_URL)
-      .then(r => r.json())
-      .then(raw => {
-        parseSheetData(raw);
-        lastSyncTime = new Date();
-        el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
-        el.style.color = 'var(--green)';
-        renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
-      })
-      .catch(err => {
-        el.innerHTML = '✗ CORS error';
-        el.style.color = 'var(--red)';
-        showSyncError(err.message);
-      });
-  };
-  document.head.appendChild(script);
+  try {
+    const r = await fetch(APPS_SCRIPT_URL);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const raw = await r.json();
+    if (raw === 'Unauthorised') throw new Error('Token rejected');
+    parseSheetData(raw);
+    lastSyncTime = new Date();
+    el.innerHTML = '✓ ' + lastSyncTime.toLocaleTimeString('en-SG',{hour:'2-digit',minute:'2-digit'});
+    el.style.color = 'var(--green)';
+    renderTab(document.querySelector('.nav-btn.active')?.getAttribute('onclick')?.match(/'(\w+)'/)?.[1] || 'home');
+  } catch(e) {
+    el.innerHTML = '✗ ' + String(e.message).substring(0,25);
+    el.style.color = 'var(--red)';
+    console.error('Sync error:', e);
+    showSyncError(e.message);
+  }
 }
 
 function showSyncError(msg) {
-  document.getElementById('tab-home').innerHTML = `
-    <div style="text-align:center;padding:40px 24px">
+  const homeTab = document.getElementById('tab-home');
+  if (homeTab && homeTab.classList.contains('active')) {
+    homeTab.innerHTML = `<div style="text-align:center;padding:40px 24px">
       <div style="font-size:32px;margin-bottom:12px">⚠️</div>
       <div style="color:var(--red);font-size:14px;font-weight:600;margin-bottom:8px">Sync Failed</div>
       <div style="color:var(--muted);font-size:12px;font-family:monospace;background:#0a1520;padding:10px;border-radius:6px;margin-bottom:16px;word-break:break-all;text-align:left">${msg}</div>
-      <button class="action-btn btn-teal" onclick="syncData()" style="margin-bottom:10px">↻ Retry</button>
+      <button class="action-btn btn-teal" onclick="syncData()">↻ Retry</button>
     </div>`;
+  }
 }
 
 function parseSheetData(raw) {
@@ -577,6 +526,26 @@ function renderHome() {
     html += `<div class="empty">✅ All clear today — nothing urgent</div>`;
   }
 
+  // 60-day follow-up overdue
+  const overdue = CLIENTS_DATA.filter(c=>daysSinceFollowUp(c.id)>=60)
+    .sort((a,b)=>daysSinceFollowUp(b.id)-daysSinceFollowUp(a.id)).slice(0,10);
+  if (overdue.length) {
+    html += `<div class="section-title" style="margin-top:18px">📅 Follow-up Overdue (60+ days)</div>`;
+    overdue.forEach(c => {
+      const d = daysSinceFollowUp(c.id);
+      html += `<div class="alert-card alert-amber" style="cursor:pointer" onclick="openClient('${c.id}')">
+        <div class="row">
+          <div class="col">
+            <div class="name" style="font-size:14px">${c.name}</div>
+            <div class="sub">${c.cat} · ${d===999?'Never contacted':d+'d ago'}</div>
+            ${c.mobile?`<a href="https://wa.me/65${c.mobile}" onclick="event.stopPropagation()" style="text-decoration:none;margin-top:4px;display:inline-block"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px">💬 WhatsApp</span></a>`:''}
+          </div>
+          <div class="badge" style="color:var(--amber);font-size:16px">${d===999?'!':d+'d'}</div>
+        </div>
+      </div>`;
+    });
+  }
+
   document.getElementById('tab-home').innerHTML = html;
 }
 
@@ -700,6 +669,25 @@ function openClient(id) {
   document.getElementById('detailBody').innerHTML = body;
   document.getElementById('detailOverlay').classList.add('open');
   document.getElementById('detailOverlay').scrollTop = 0;
+  // Notes section
+  const nb = document.getElementById('detailBody');
+  if (nb) {
+    const ds = daysSinceFollowUp(id);
+    const ns = document.createElement('div');
+    ns.style.marginTop = '16px';
+    ns.innerHTML = `<div class="section-title">Notes & Follow-up</div>
+      ${ds>=60?`<div style="background:#e76f5115;border:1px solid var(--red);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--red)">⚠ Last follow-up ${ds===999?'never':ds+'d ago'} — overdue!</div>`:''}
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="action-btn btn-teal" style="font-size:11px;padding:6px 12px" onclick="markFollowUpDone('${id}',document.getElementById('note_${id}').value);document.getElementById('note_${id}').value=''">✓ Log Follow-up</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input id="note_${id}" class="search-input" placeholder="Add note..." style="flex:1;font-size:12px;padding:8px 10px"/>
+        <button class="action-btn btn-ghost" style="font-size:11px;padding:6px 10px" onclick="submitNote('${id}','note_${id}','notes_${id}')">Add</button>
+      </div>
+      <div id="notes_${id}"></div>`;
+    nb.appendChild(ns);
+    renderNotes(id, 'notes_'+id);
+  }
 }
 
 function closeDetail() {
@@ -1020,58 +1008,6 @@ function exportForClaude() {
     setTimeout(()=>{ btn.textContent=orig; btn.style.background='var(--purple)'; },2000);
   }).catch(()=>{ prompt('Copy this text:', lines.join('\n')); });
 }
-
-// ── PATCH openClient TO INCLUDE NOTES + FOLLOW-UP ────────────────────────
-const _origOpenClient = openClient;
-window.openClient = function(id) {
-  _origOpenClient(id);
-  // Inject notes section into detail body
-  const body = document.getElementById('detailBody');
-  if (!body) return;
-  const notesSection = document.createElement('div');
-  notesSection.style.marginTop = '16px';
-  const daysSince = daysSinceFollowUp(id);
-  const overdueHtml = daysSince>=60 ? `<div style="background:#e76f5115;border:1px solid var(--red);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--red)">⚠ Last follow-up ${daysSince===999?'never':daysSince+'d ago'} — overdue!</div>` : '';
-  notesSection.innerHTML = `
-    <div class="section-title">Notes & Follow-up</div>
-    ${overdueHtml}
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <button class="action-btn btn-teal" style="font-size:11px;padding:6px 12px" onclick="markFollowUpDone('${id}', document.getElementById('note_${id}').value); document.getElementById('note_${id}').value=''">✓ Log Follow-up</button>
-    </div>
-    <div style="display:flex;gap:6px;margin-bottom:10px">
-      <input id="note_${id}" class="search-input" placeholder="Add note..." style="flex:1;font-size:12px;padding:8px 10px"/>
-      <button class="action-btn btn-ghost" style="font-size:11px;padding:6px 10px" onclick="submitNote('${id}','note_${id}','notes_${id}')">Add</button>
-    </div>
-    <div id="notes_${id}"></div>`;
-  body.appendChild(notesSection);
-  renderNotes(id, 'notes_'+id);
-};
-
-// ── PATCH renderHome TO INCLUDE 60-DAY OVERDUE CLIENTS ───────────────────
-const _origRenderHome = renderHome;
-window.renderHome = function() {
-  _origRenderHome();
-  const tab = document.getElementById('tab-home');
-  if (!tab || !CLIENTS_DATA.length) return;
-  const overdue = CLIENTS_DATA.filter(c=>daysSinceFollowUp(c.id)>=60)
-    .sort((a,b)=>daysSinceFollowUp(b.id)-daysSinceFollowUp(a.id)).slice(0,10);
-  if (!overdue.length) return;
-  const div = document.createElement('div');
-  div.innerHTML = `<div class="section-title" style="margin-top:18px">📅 Follow-up Overdue (60+ days)</div>`+
-    overdue.map(c=>{
-      const d=daysSinceFollowUp(c.id);
-      return `<div class="alert-card alert-amber" style="cursor:pointer" onclick="openClient('${c.id}')">
-        <div class="row">
-          <div class="col"><div class="name" style="font-size:14px">${c.name}</div>
-          <div class="sub">${c.cat} · ${d===999?'Never contacted':d+'d ago'}</div>
-          ${c.mobile?`<a href="https://wa.me/65${c.mobile}" style="text-decoration:none;margin-top:4px;display:inline-block">${'<span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px">💬 WhatsApp</span>'}</a>`:''}
-          </div>
-          <div class="badge" style="color:var(--amber);font-size:16px">${d===999?'!':d+'d'}</div>
-        </div>
-      </div>`;
-    }).join('');
-  tab.appendChild(div);
-};
 
 // ── CONTACTS (671 non-CIMB phone contacts) ────────────────────────────────
 // hint = auto-detected network cluster hints from saved contact names
