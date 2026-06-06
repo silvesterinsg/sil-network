@@ -167,7 +167,7 @@
   </button>
   <button class="nav-btn" onclick="showTab('cimb',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    CIMB
+    Ex-Prosp
   </button>
   <button class="nav-btn" onclick="showTab('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -700,8 +700,63 @@ function openClient(id) {
   document.getElementById('detailBody').innerHTML = body;
   document.getElementById('detailOverlay').classList.add('open');
   document.getElementById('detailOverlay').scrollTop = 0;
-  // Notes section
+
+  // ── Portfolio Pie Chart ───────────────────────────────────────────────
   const nb = document.getElementById('detailBody');
+  if (nb && policies.length > 0) {
+    // Calculate AUM per insurer for this client
+    const today2 = new Date(); today2.setHours(0,0,0,0);
+    const REASSIGN = {'83445024':'SC-0047','80411596':'SC-0047','83609445':'SC-0060'};
+    const insurerAUM = {};
+    policies.forEach(p => {
+      let yp = (p.freq==='Single'||!p.inception) ? 1 : (() => {
+        let paid=0, d=new Date(p.inception);
+        while(d<=today2&&paid<20){paid++;try{d.setFullYear(d.getFullYear()+1);}catch(e){break;}}
+        return p.maxPay ? Math.min(paid,p.maxPay) : paid;
+      })();
+      const aum = Math.round(p.ap * yp);
+      insurerAUM[p.insurer] = (insurerAUM[p.insurer]||0) + aum;
+    });
+    const totalAUM = Object.values(insurerAUM).reduce((a,b)=>a+b,0);
+    if (totalAUM > 0) {
+      const colors = {'Singlife':'#2A9D8F','Income':'#E9C46A','FWD':'#E76F51','Manulife':'#A78BFA','Other':'#60A5FA'};
+      const entries = Object.entries(insurerAUM).sort((a,b)=>b[1]-a[1]);
+      // SVG donut
+      const size = 130, cx=size/2, cy=size/2, r=48, inner=28;
+      let startAngle = -Math.PI/2;
+      let slices = '';
+      entries.forEach(([ins,aum]) => {
+        const angle = (aum/totalAUM)*Math.PI*2;
+        const endAngle = startAngle + angle;
+        const x1=cx+r*Math.cos(startAngle), y1=cy+r*Math.sin(startAngle);
+        const x2=cx+r*Math.cos(endAngle), y2=cy+r*Math.sin(endAngle);
+        const ix1=cx+inner*Math.cos(startAngle), iy1=cy+inner*Math.sin(startAngle);
+        const ix2=cx+inner*Math.cos(endAngle), iy2=cy+inner*Math.sin(endAngle);
+        const largeArc = angle > Math.PI ? 1 : 0;
+        const col = colors[ins]||colors['Other'];
+        slices += `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${r},${r} 0 ${largeArc},1 ${x2.toFixed(1)},${y2.toFixed(1)} L${ix2.toFixed(1)},${iy2.toFixed(1)} A${inner},${inner} 0 ${largeArc},0 ${ix1.toFixed(1)},${iy1.toFixed(1)} Z" fill="${col}" opacity="0.9"/>`;
+        startAngle = endAngle;
+      });
+      const legend = entries.map(([ins,aum])=>`
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <div style="width:10px;height:10px;border-radius:2px;background:${colors[ins]||colors['Other']};flex-shrink:0"></div>
+          <div style="font-size:11px;color:var(--text)">${ins}</div>
+          <div style="font-size:11px;color:var(--muted);margin-left:auto">${Math.round(aum/totalAUM*100)}% · ${fmt(aum)}</div>
+        </div>`).join('');
+      const pieSection = document.createElement('div');
+      pieSection.innerHTML = `<div class="section-title">Portfolio Breakdown</div>
+        <div style="display:flex;align-items:center;gap:16px;background:var(--surface2);border-radius:10px;padding:12px 14px;margin-bottom:14px">
+          <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex-shrink:0">${slices}
+            <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="#E8F4F0" font-size="9" font-family="Arial">${fmt(totalAUM)}</text>
+            <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="#6B8FA3" font-size="8" font-family="Arial">Total AUM</text>
+          </svg>
+          <div style="flex:1;min-width:0">${legend}</div>
+        </div>`;
+      nb.insertBefore(pieSection, nb.firstChild);
+    }
+  }
+
+  // ── Notes section ─────────────────────────────────────────────────────
   if (nb) {
     const ds = daysSinceFollowUp(id);
     const ns = document.createElement('div');
@@ -1742,8 +1797,18 @@ function renderContactList() {
     if (contactFilter === 'nohint') return c.hint === '';
     return c.hint.includes(contactFilter);
   });
+
+  function buildWA(rawPhone) {
+    let p = rawPhone.replace(/\D/g,'');
+    if (p.startsWith('0')) p = p.substring(1);
+    if (p.length === 8) p = '65' + p; // SG
+    return p.length >= 8 ? `https://wa.me/${p}` : null;
+  }
+
   let html = `<div class="sub" style="margin-bottom:8px">${list.length} contacts</div>`;
-  list.slice(0, 100).forEach(c => {
+  if (!list.length) { html += `<div class="empty">No contacts found</div>`; }
+  list.forEach(c => {
+    const waUrl = c.phone ? buildWA(c.phone) : null;
     html += `<div class="card" style="padding:10px 14px">
       <div class="row">
         <div class="col" style="flex:1;min-width:0">
@@ -1751,12 +1816,12 @@ function renderContactList() {
           ${c.hint ? `<div style="font-size:10px;color:var(--teal);margin-top:2px">📍 ${c.hint}</div>` : ''}
           <div style="font-size:11px;color:var(--muted);margin-top:1px">${c.phone}</div>
         </div>
-        <div style="display:flex;gap:6px">
-          ${c.phone&&c.phone.length>=8?`<a href="https://wa.me/65${c.phone.replace(/\D/g,'')}" style="text-decoration:none;font-size:18px">💬</a>`:''}
-        </div>
+        ${waUrl ? `<a href="${waUrl}" style="text-decoration:none;font-size:18px">💬</a>` : ''}
       </div>
     </div>`;
   });
+  const el = document.getElementById('contactList');
+  if (el) el.innerHTML = html;
 } // end renderContactList
 
 // ── CIMB PIPELINE ─────────────────────────────────────────────────────────
@@ -1825,16 +1890,32 @@ function renderCIMBList() {
     return true;
   });
   const waMsg = encodeURIComponent('Hi, this is Silvester. I wanted to reconnect and share some thoughts on estate and legacy planning that may be relevant for you. Would you be open to a brief chat?');
+
+  function buildWA(rawPhone) {
+    // Remove all non-digits
+    let p = rawPhone.replace(/\D/g,'');
+    // If starts with 0, replace with country code based on length
+    if (p.startsWith('0')) p = p.substring(1);
+    // Already has country code if 10+ digits starting with non-65 prefix
+    // SG: 8 digits → add 65
+    // MY: 9-10 digits starting with 1 → add 60
+    // TH: 9 digits → add 66
+    // Otherwise keep as-is if 10+ digits (already has country code)
+    if (p.length === 8) p = '65' + p;
+    // else p already has country code
+    return p.length >= 8 ? `https://wa.me/${p}?text=${waMsg}` : null;
+  }
+
   let html = `<div class="sub" style="margin-bottom:8px">${list.length} contacts</div>`;
-  list.slice(0,100).forEach(c => {
+  list.forEach(c => {
     const isConverted = c.converted==='Yes';
-    const cleanPhone = c.phone.replace(/\D/g,'').replace(/^65/,'');
-    const displayName = c.name.replace(/\|?\s*CIMB\s*Cx\b/gi,'').replace(/\|?\s*Cimb\s*Cx\b/gi,'').trim();
+    const displayName = c.name.replace(/\|?\s*CIMB\s*Cx\b[\w\s]*/gi,'').replace(/\|?\s*Cimb\s*Cx\b[\w\s]*/gi,'').trim().replace(/\|$/, '').trim();
+    const waUrl = buildWA(c.phone);
     html += `<div class="card" style="opacity:${unlocked||isConverted?1:0.8}">
       <div class="row" style="align-items:flex-start">
         <div class="col" style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-            <div class="name" style="font-size:13px">${displayName}</div>
+            <div class="name" style="font-size:13px">${displayName||c.name}</div>
             ${isConverted?`<span style="font-size:9px;background:#22c55e20;color:var(--green);padding:2px 6px;border-radius:4px;white-space:nowrap">✓ Client</span>`:''}
             ${!unlocked&&!isConverted?`<span style="font-size:9px;background:#e76f5120;color:var(--red);padding:2px 5px;border-radius:4px">🔒</span>`:''}
           </div>
@@ -1842,11 +1923,10 @@ function renderCIMBList() {
           <div style="font-size:11px;color:var(--muted);margin-top:1px">${c.phone}</div>
           ${c.notes?`<div style="font-size:11px;color:var(--amber);margin-top:3px;font-style:italic">${c.notes}</div>`:''}
         </div>
-        ${unlocked&&cleanPhone.length>=8?`<a href="https://wa.me/65${cleanPhone}?text=${waMsg}" style="text-decoration:none;margin-top:2px"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px;white-space:nowrap">💬 WA</span></a>`:''}
+        ${unlocked && waUrl ? `<a href="${waUrl}" style="text-decoration:none;margin-top:2px"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px;white-space:nowrap">💬 WA</span></a>` : ''}
       </div>
     </div>`;
   });
-  if (list.length>100) html+=`<div class="sub" style="text-align:center;padding:12px">Showing 100 of ${list.length} — use search to narrow</div>`;
   if (!list.length) html+=`<div class="empty">No contacts found</div>`;
   if (CIMB_DATA.length===0) html=`<div class="empty">No data yet — import CIMB_Pipeline sheet into Google Sheets and sync</div>`;
   document.getElementById('cimbList').innerHTML = html;
