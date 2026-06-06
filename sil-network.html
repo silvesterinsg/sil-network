@@ -140,6 +140,7 @@
 <div class="tab" id="tab-policies"></div>
 <div class="tab" id="tab-collabs"></div>
 <div class="tab" id="tab-contacts"></div>
+<div class="tab" id="tab-cimb"></div>
 <div class="tab" id="tab-dashboard"></div>
 
 <!-- BOTTOM NAV -->
@@ -164,6 +165,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16v16H4z"/><path d="M8 12h8M12 8v8"/></svg>
     Contacts
   </button>
+  <button class="nav-btn" onclick="showTab('cimb',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    CIMB
+  </button>
   <button class="nav-btn" onclick="showTab('dashboard',this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
     Dashboard
@@ -179,6 +184,7 @@ let lastSyncTime = null;
 let CLIENTS_DATA = [];
 let POLICIES_DATA = [];
 let COLLABS_DATA = [];
+let CIMB_DATA = []; // loaded from Google Sheet CIMB_Pipeline tab
 
 // Non-CIMB phone contacts (671) — imported from synced contacts
 // These are NOT clients yet. Hints show likely network cluster.
@@ -389,6 +395,30 @@ function parseSheetData(raw) {
     if(!CLIENTS_DATA.find(c=>c.id==='SC-0060'))
       CLIENTS_DATA.push({id:'SC-0060',name:'Wang Jian',dob:'',age:null,gender:'Male',nationality:'China',mobile:'',email:'',address:'',area:'',aum:0,cat:'C4',notes:'CIMB bank policy holder — Singlife FLI2 $1M single premium',lastContact:'',nextAction:'',ig:'',fb:'',linkedin:'',wa:''});
     CLIENTS_DATA.forEach(c => { const a=Math.round(aumMap[c.id]||0); c.aum=a; c.cat=a>=200000?'C1':a>=100000?'C2':a>=50000?'C3':'C4'; });
+    // ── Parse CIMB Pipeline
+    if (raw.cimb && raw.cimb.length > 2) {
+      let dataStart = 0;
+      for (let i = 0; i < Math.min(6, raw.cimb.length); i++) {
+        if (raw.cimb[i][0] && String(raw.cimb[i][0]).startsWith('CM-')) { dataStart = i; break; }
+      }
+      const rows = raw.cimb.slice(dataStart).filter(r => r[0] && String(r[0]).startsWith('CM-'));
+      CIMB_DATA.length = 0;
+      rows.forEach(r => {
+        CIMB_DATA.push({
+          id:        String(r[0]).trim(),
+          name:      String(r[1]||'').trim(),
+          phone:     String(r[2]||'').trim(),
+          email:     String(r[3]||'').trim(),
+          category:  String(r[4]||'').trim(),
+          hint:      String(r[5]||'').trim(),
+          relationship: String(r[6]||'').trim(),
+          lastNudge: String(r[7]||'').trim(),
+          notes:     String(r[8]||'').trim(),
+          unlockDate:'2027-03-03',
+          converted: String(r[10]||'No').trim(),
+        });
+      });
+    }
     document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
 } // end parseSheetData
 
@@ -407,6 +437,7 @@ function renderTab(name) {
   else if (name==='policies') renderPolicies();
   else if (name==='collabs') renderCollabs();
   else if (name==='contacts') renderContacts();
+  else if (name==='cimb') renderCIMB();
   else if (name==='dashboard') renderDashboard();
 }
 
@@ -1726,8 +1757,99 @@ function renderContactList() {
       </div>
     </div>`;
   });
-  if (list.length > 100) html += `<div class="sub" style="text-align:center;padding:12px">Showing 100 of ${list.length} — use search to narrow down</div>`;
-  document.getElementById('contactList').innerHTML = html;
+} // end renderContactList
+
+// ── CIMB PIPELINE ─────────────────────────────────────────────────────────
+let cimbSearch = '', cimbFilter = 'All';
+
+function renderCIMB() {
+  const UNLOCK = new Date('2027-03-03');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const unlocked = today >= UNLOCK;
+  const msLeft = UNLOCK - today;
+  const months = Math.max(0, Math.floor(msLeft / (1000*60*60*24*30.44)));
+  const days = Math.max(0, Math.ceil((msLeft % (1000*60*60*24*30.44)) / 86400000));
+  const total = CIMB_DATA.length;
+  const converted = CIMB_DATA.filter(c=>c.converted==='Yes').length;
+  let html = '';
+
+  if (!unlocked) {
+    html += `<div style="background:#e76f5118;border:1px solid var(--red);border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:20px">🔒</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--red)">Non-Solicitation Active</div>
+        <div style="font-size:11px;color:var(--muted)">Left CIMB: 2 Mar 2026 · Unlocks: 3 Mar 2027</div></div>
+      </div>
+      <div style="background:#0a1520;border-radius:8px;padding:10px 12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)">${months}m ${days}d</div>
+        <div style="font-size:10px;color:var(--muted)">until you can reach out</div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.6">
+        📋 <strong style="color:var(--amber)">Prepare now:</strong> Tag priorities, note relationships, draft your estate &amp; legacy planning message for launch day.
+      </div>
+    </div>`;
+  } else {
+    html += `<div style="background:#22c55e15;border:1px solid var(--green);border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--green)">🔓 Non-Solicitation Ended — You can now reach out!</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Focus: Estate &amp; Legacy Planning · Monthly WhatsApp outreach</div>
+    </div>`;
+  }
+
+  html += `<div style="display:flex;gap:8px;margin-bottom:14px">
+    <div class="stat-box" style="flex:1"><div class="badge" style="color:var(--red)">${total}</div><div class="sub">Total</div></div>
+    <div class="stat-box" style="flex:1"><div class="badge" style="color:var(--amber)">${total-converted}</div><div class="sub">Prospects</div></div>
+    <div class="stat-box" style="flex:1"><div class="badge" style="color:var(--green)">${converted}</div><div class="sub">Converted</div></div>
+  </div>`;
+
+  const hints = [...new Set(CIMB_DATA.flatMap(c=>c.hint?c.hint.split(', '):[],''))].filter(Boolean).sort();
+  html += `<div class="search-bar"><input class="search-input" placeholder="Search CIMB contacts..." oninput="cimbSearch=this.value;renderCIMBList()" value="${cimbSearch}"/></div>`;
+  html += `<div class="filter-scroll">
+    <button class="filter-btn ${cimbFilter==='All'?'active':''}" onclick="cimbFilter='All';renderCIMBList()">All (${total})</button>
+    <button class="filter-btn ${cimbFilter==='Unconverted'?'active':''}" onclick="cimbFilter='Unconverted';renderCIMBList()">Prospects</button>
+    <button class="filter-btn ${cimbFilter==='Converted'?'active':''}" onclick="cimbFilter='Converted';renderCIMBList()">✓ Converted</button>
+    ${hints.slice(0,6).map(h=>`<button class="filter-btn ${cimbFilter===h?'active':''}" onclick="cimbFilter='${h}';renderCIMBList()">${h}</button>`).join('')}
+  </div><div id="cimbList"></div>`;
+
+  document.getElementById('tab-cimb').innerHTML = html;
+  renderCIMBList();
+}
+
+function renderCIMBList() {
+  const unlocked = new Date() >= new Date('2027-03-03');
+  const q = cimbSearch.toLowerCase();
+  const list = CIMB_DATA.filter(c => {
+    if (q && !c.name.toLowerCase().includes(q) && !c.phone.includes(q)) return false;
+    if (cimbFilter==='Unconverted') return c.converted!=='Yes';
+    if (cimbFilter==='Converted') return c.converted==='Yes';
+    if (cimbFilter!=='All') return c.hint.includes(cimbFilter);
+    return true;
+  });
+  const waMsg = encodeURIComponent('Hi, this is Silvester. I wanted to reconnect and share some thoughts on estate and legacy planning that may be relevant for you. Would you be open to a brief chat?');
+  let html = `<div class="sub" style="margin-bottom:8px">${list.length} contacts</div>`;
+  list.slice(0,100).forEach(c => {
+    const isConverted = c.converted==='Yes';
+    const cleanPhone = c.phone.replace(/\D/g,'').replace(/^65/,'');
+    const displayName = c.name.replace(/\|?\s*CIMB\s*Cx\b/gi,'').replace(/\|?\s*Cimb\s*Cx\b/gi,'').trim();
+    html += `<div class="card" style="opacity:${unlocked||isConverted?1:0.8}">
+      <div class="row" style="align-items:flex-start">
+        <div class="col" style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <div class="name" style="font-size:13px">${displayName}</div>
+            ${isConverted?`<span style="font-size:9px;background:#22c55e20;color:var(--green);padding:2px 6px;border-radius:4px;white-space:nowrap">✓ Client</span>`:''}
+            ${!unlocked&&!isConverted?`<span style="font-size:9px;background:#e76f5120;color:var(--red);padding:2px 5px;border-radius:4px">🔒</span>`:''}
+          </div>
+          ${c.hint?`<div style="font-size:10px;color:var(--teal);margin-top:2px">📍 ${c.hint}</div>`:''}
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${c.phone}</div>
+          ${c.notes?`<div style="font-size:11px;color:var(--amber);margin-top:3px;font-style:italic">${c.notes}</div>`:''}
+        </div>
+        ${unlocked&&cleanPhone.length>=8?`<a href="https://wa.me/65${cleanPhone}?text=${waMsg}" style="text-decoration:none;margin-top:2px"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px;white-space:nowrap">💬 WA</span></a>`:''}
+      </div>
+    </div>`;
+  });
+  if (list.length>100) html+=`<div class="sub" style="text-align:center;padding:12px">Showing 100 of ${list.length} — use search to narrow</div>`;
+  if (!list.length) html+=`<div class="empty">No contacts found</div>`;
+  if (CIMB_DATA.length===0) html=`<div class="empty">No data yet — import CIMB_Pipeline sheet into Google Sheets and sync</div>`;
+  document.getElementById('cimbList').innerHTML = html;
 }
 
 const fab = document.createElement('button');
