@@ -1,7 +1,3 @@
-https://raw.githubusercontent.com/silvesterinsg/sil-network/main/sil-network.html
-→ https://raw.githubusercontent.com/silvesterinsg/sil-network/main/sil-network.html
-Content-Type: text/plain; charset=utf-8
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -181,25 +177,7 @@ Content-Type: text/plain; charset=utf-8
 
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
-const APPS_SCRIPT_URL  = 'https://script.google.com/macros/s/AKfycbxE1K9K4KpkW6nsBnuc5KvAWtLkml9RXJVA8QTga9BzvzorB9ondpJXtsoxzyjc1MHbgQ/exec?token=silnetwork2024sc';
-const APPS_SCRIPT_POST = 'https://script.google.com/macros/s/AKfycbxE1K9K4KpkW6nsBnuc5KvAWtLkml9RXJVA8QTga9BzvzorB9ondpJXtsoxzyjc1MHbgQ/exec';
-const TOKEN = 'silnetwork2024sc';
-
-// ── POST to Apps Script (write) ─────────────────────────────────────────
-async function postToSheet(payload) {
-  payload.token = TOKEN;
-  try {
-    const r = await fetch(APPS_SCRIPT_POST, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    return await r.json();
-  } catch(e) {
-    console.warn('Post failed (offline?), cached locally:', e);
-    return { ok: false, error: e.message };
-  }
-}
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxE1K9K4KpkW6nsBnuc5KvAWtLkml9RXJVA8QTga9BzvzorB9ondpJXtsoxzyjc1MHbgQ/exec?token=silnetwork2024sc';
 let lastSyncTime = null;
 
 // ── DATA ──────────────────────────────────────────────────────────────────
@@ -207,7 +185,6 @@ let CLIENTS_DATA = [];
 let POLICIES_DATA = [];
 let COLLABS_DATA = [];
 let CIMB_DATA = []; // loaded from Google Sheet CIMB_Pipeline tab
-let INTERACTIONS_DATA = []; // touchpoints — synced from Interactions sheet
 
 // Non-CIMB phone contacts (671) — imported from synced contacts
 // These are NOT clients yet. Hints show likely network cluster.
@@ -442,30 +419,6 @@ function parseSheetData(raw) {
         });
       });
     }
-    // ── Parse Interactions
-    if (raw.interactions && raw.interactions.length > 1) {
-      let dataStart = 0;
-      for (let i = 0; i < Math.min(3, raw.interactions.length); i++) {
-        if (raw.interactions[i][0] && String(raw.interactions[i][0]) !== 'Timestamp') { dataStart = i; break; }
-        if (raw.interactions[i][0] === 'Timestamp') { dataStart = i + 1; break; }
-      }
-      INTERACTIONS_DATA.length = 0;
-      raw.interactions.slice(dataStart).forEach(r => {
-        if (!r[2]) return; // skip if no person ID
-        INTERACTIONS_DATA.push({
-          ts:              String(r[0]||'').trim(),
-          date:            String(r[1]||'').trim(),
-          personId:        String(r[2]||'').trim(),
-          personName:      String(r[3]||'').trim(),
-          personType:      String(r[4]||'').trim(),
-          interactionType: String(r[5]||'').trim(),
-          direction:       String(r[6]||'').trim(),
-          notes:           String(r[7]||'').trim(),
-          nextFollowup:    String(r[8]||'').trim(),
-          nextAction:      String(r[9]||'').trim(),
-        });
-      });
-    }
     document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
 } // end parseSheetData
 
@@ -502,34 +455,17 @@ function renderHome() {
     document.getElementById('hAUMTotal').textContent = '—';
     return;
   }
-  try {
   const today = new Date(); today.setHours(0,0,0,0);
-
-  // Helper: safe birthday age text
-  function bdayAgeText(dob) {
-    try {
-      const bd = new Date(dob);
-      if (isNaN(bd)) return '';
-      const thisYearBday = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
-      const hasPassed = thisYearBday < today;
-      const currentAge = today.getFullYear() - bd.getFullYear() - (hasPassed ? 0 : 1);
-      const turnsAge = currentAge + 1;
-      return `${bd.toLocaleDateString('en-GB',{day:'numeric',month:'long'})} · Age ${currentAge} → ${turnsAge}`;
-    } catch(e) { return ''; }
-  }
-
-  const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days!=null&&c.days<=30).sort((a,b)=>a.days-b.days);
-  // Guard: ensure product is always a string before calling .includes()
-  const cgAlerts = POLICIES_DATA.filter(p=>String(p.product||'').includes('Flexi Life Income II')).map(p=>{
+  const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days<=30).sort((a,b)=>a.days-b.days);
+  const cgAlerts = POLICIES_DATA.filter(p=>p.product.includes('Flexi Life Income II')).map(p=>{
     const cg = cgDate(p.inception);
-    if (!cg || isNaN(cg)) return null;
     const days = Math.round((cg-today)/86400000);
     return {...p, cgDate:cg, daysToC:days};
-  }).filter(p=>p&&p.daysToC>0&&p.daysToC<=180).sort((a,b)=>a.daysToC-b.daysToC);
+  }).filter(p=>p.daysToC>0&&p.daysToC<=180).sort((a,b)=>a.daysToC-b.daysToC);
 
   const premDue = POLICIES_DATA.filter(p=>!isFullyPaid(p)&&p.freq!=='Single').map(p=>{
     const next = nextPremiumDate(p.inception, p.freq);
-    if (!next || isNaN(next)) return null;
+    if (!next) return null;
     const days = Math.round((next-today)/86400000);
     return {...p, nextDate:next, daysToP:days};
   }).filter(p=>p&&p.daysToP>0&&p.daysToP<=90).sort((a,b)=>a.daysToP-b.daysToP);
@@ -537,7 +473,7 @@ function renderHome() {
   // Update header alerts
   document.getElementById('hBdayAlert').textContent = bdayAlerts.length ? `🎂 ${bdayAlerts.length} bdays` : '';
   document.getElementById('hCGAlert').textContent = cgAlerts.length ? `🛡 ${cgAlerts.length} CG alerts` : '';
-  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+(c.aum||0),0);
+  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
   document.getElementById('hAUMTotal').textContent = 'SGD '+fmtK(totalAUM);
   document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
 
@@ -552,7 +488,7 @@ function renderHome() {
         <div class="row">
           <div class="col">
             <div class="name" style="font-size:14px">${c.name}</div>
-            <div class="sub">${bdayAgeText(c.dob)}</div>
+            <div class="sub">${new Date(c.dob).toLocaleDateString('en-GB',{day:'numeric',month:'long'})} · Age ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear() : new Date().getFullYear()-new Date(c.dob).getFullYear()-1} → ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear()+1 : new Date().getFullYear()-new Date(c.dob).getFullYear()}</div>
             <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
               ${tag(c.cat, catColor(c.cat))}
               ${c.mobile?`<a href="https://wa.me/65${c.mobile}" style="text-decoration:none">${tag('💬 WhatsApp','var(--green)')}</a>`:''}
@@ -570,14 +506,14 @@ function renderHome() {
   if (cgAlerts.length) {
     html += `<div class="section-title">🛡 Capital Guarantee — Approaching 3 Years</div>`;
     cgAlerts.forEach(p => {
+      const client = CLIENTS_DATA.find(c=>c.id===p.clientId)||{};
       const urgent = p.daysToC <= 60;
-      const cgStr = (!p.cgDate||isNaN(p.cgDate)) ? '—' : p.cgDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
       html += `<div class="alert-card ${urgent?'alert-red':'alert-teal'}">
         <div class="row">
           <div class="col">
             <div class="name" style="font-size:14px">${p.client}</div>
             <div class="sub">Policy ${p.polId} · ${fmt(p.ap)}/yr</div>
-            <div class="sub">CG Date: ${cgStr}</div>
+            <div class="sub">CG Date: ${p.cgDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
             <div style="margin-top:4px">${tag('⚠ Singlife backdating — verify actual CG date','var(--amber)')}</div>
           </div>
           <div style="text-align:right">
@@ -596,15 +532,13 @@ function renderHome() {
       const key = p.polId;
       const done = followedUp[key];
       const urgent = p.daysToP <= 30;
-      const prod = String(p.product||'');
-      const dueStr = (!p.nextDate||isNaN(p.nextDate)) ? '—' : p.nextDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
       html += `<div class="alert-card ${done?'followed-up':urgent?'alert-red':'alert-amber'}" id="prem_${key}">
         <div class="row">
           <div class="col" style="flex:1">
             <div class="name" style="font-size:14px">${p.client}</div>
-            <div class="sub">${p.insurer} · ${prod.length>28?prod.substring(0,28)+'…':prod}</div>
+            <div class="sub">${p.insurer} · ${p.product.length>28?p.product.substring(0,28)+'…':p.product}</div>
             <div class="money" style="font-size:13px;margin-top:4px">${fmt(p.ap)}</div>
-            <div class="sub">Due: ${dueStr}</div>
+            <div class="sub">Due: ${p.nextDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
             <div style="margin-top:6px">
               <button class="action-btn ${done?'btn-ghost':'btn-teal'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUp('${key}')">
                 ${done?'✓ Followed Up':'Mark Followed Up'}
@@ -644,16 +578,6 @@ function renderHome() {
   }
 
   document.getElementById('tab-home').innerHTML = html;
-  } catch(renderErr) {
-    console.error('renderHome crashed:', renderErr);
-    document.getElementById('tab-home').innerHTML = `
-      <div style="text-align:center;padding:40px 24px">
-        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
-        <div style="color:var(--red);font-size:14px;font-weight:600;margin-bottom:8px">Today tab error</div>
-        <div style="color:var(--muted);font-size:11px;font-family:monospace;background:#0a1520;padding:10px;border-radius:6px;margin-bottom:16px;word-break:break-all;text-align:left">${renderErr.message}</div>
-        <button class="action-btn btn-teal" onclick="syncData()">↻ Re-sync</button>
-      </div>`;
-  }
 }
 
 function toggleFollowUp(key) {
@@ -837,24 +761,14 @@ function openClient(id) {
     const ds = daysSinceFollowUp(id);
     const ns = document.createElement('div');
     ns.style.marginTop = '16px';
-    ns.innerHTML = `<div class="section-title">Interaction Log</div>
+    ns.innerHTML = `<div class="section-title">Notes & Follow-up</div>
       ${ds>=60?`<div style="background:#e76f5115;border:1px solid var(--red);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--red)">⚠ Last follow-up ${ds===999?'never':ds+'d ago'} — overdue!</div>`:''}
-      <div style="background:#060d14;border-radius:8px;padding:10px 12px;margin-bottom:10px">
-        <select id="noteType_${id}" style="width:100%;background:#0a1520;color:var(--text);border:1px solid #1e3a4a;border-radius:6px;padding:6px 8px;font-size:12px;margin-bottom:8px">
-          <option value="Note">📝 Note</option>
-          <option value="Call">📞 Call</option>
-          <option value="WhatsApp">💬 WhatsApp</option>
-          <option value="Email">✉️ Email</option>
-          <option value="Meeting">🤝 Meeting</option>
-          <option value="Follow-up">✅ Follow-up</option>
-        </select>
-        <textarea id="note_${id}" class="search-input" placeholder="What happened? What was discussed?" style="width:100%;font-size:12px;padding:8px 10px;min-height:60px;resize:vertical;margin-bottom:8px"></textarea>
-        <input id="nextFollowup_${id}" class="search-input" type="date" placeholder="Next follow-up date" style="width:100%;font-size:12px;padding:6px 10px;margin-bottom:6px"/>
-        <input id="nextAction_${id}" class="search-input" placeholder="Next action..." style="width:100%;font-size:12px;padding:6px 10px;margin-bottom:8px"/>
-        <div style="display:flex;gap:6px">
-          <button class="action-btn btn-teal" style="font-size:11px;padding:6px 12px;flex:1" onclick="markFollowUpDone('${id}',document.getElementById('note_${id}').value);document.getElementById('note_${id}').value=''">✅ Log Follow-up</button>
-          <button class="action-btn btn-ghost" style="font-size:11px;padding:6px 10px" onclick="submitNote('${id}','note_${id}','notes_${id}')">+ Log</button>
-        </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="action-btn btn-teal" style="font-size:11px;padding:6px 12px" onclick="markFollowUpDone('${id}',document.getElementById('note_${id}').value);document.getElementById('note_${id}').value=''">✓ Log Follow-up</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <input id="note_${id}" class="search-input" placeholder="Add note..." style="flex:1;font-size:12px;padding:8px 10px"/>
+        <button class="action-btn btn-ghost" style="font-size:11px;padding:6px 10px" onclick="submitNote('${id}','note_${id}','notes_${id}')">Add</button>
       </div>
       <div id="notes_${id}"></div>`;
     nb.appendChild(ns);
@@ -1097,214 +1011,53 @@ function renderDashboard() {
 // ── NOTES SYSTEM ─────────────────────────────────────────────────────────
 // Notes stored in localStorage keyed by contact ID
 // Format: { id: [{text, ts, type}] }
-// ── INTERACTION LOG (synced to Google Sheet + localStorage cache) ─────────
-
-function _getLocalNotes(id) {
+function getNotes(id) {
   try { return JSON.parse(localStorage.getItem('sil_notes_'+id)||'[]'); } catch { return []; }
 }
-function _saveLocalNote(id, entry) {
-  const notes = _getLocalNotes(id);
-  notes.push(entry);
+function addNote(id, text, type='client') {
+  if (!text.trim()) return;
+  const notes = getNotes(id);
+  notes.push({ text: text.trim(), ts: new Date().toISOString(), type });
   localStorage.setItem('sil_notes_'+id, JSON.stringify(notes));
 }
-
-// Get all interactions for a person — sheet-synced first, local fallback
-function getNotes(id) {
-  const sheetNotes = INTERACTIONS_DATA.filter(x => x.personId === id).map(x => ({
-    text: x.notes,
-    ts:   x.ts || x.date,
-    type: x.interactionType === 'Follow-up' ? 'followup' : 'note',
-    interactionType: x.interactionType,
-    direction: x.direction,
-    nextFollowup: x.nextFollowup,
-    nextAction: x.nextAction,
-    source: 'sheet'
-  }));
-  const localNotes = _getLocalNotes(id).filter(n => n.source !== 'sheet');
-  return [...sheetNotes, ...localNotes].sort((a,b) => new Date(a.ts) - new Date(b.ts));
-}
-
-// Log interaction — posts to sheet, caches locally
-async function addNote(id, text, type='note', opts={}) {
-  if (!text.trim()) return;
-  const personData = CLIENTS_DATA.find(c=>c.id===id) || COLLABS_DATA.find(c=>c.id===id);
-  const personType = COLLABS_DATA.find(c=>c.id===id) ? 'Collab' : 'Client';
-  const today = new Date().toISOString().slice(0,10);
-  const entry = {
-    text: text.trim(),
-    ts: new Date().toISOString(),
-    type,
-    interactionType: opts.interactionType || (type==='followup' ? 'Follow-up' : 'Note'),
-    direction: opts.direction || 'Outbound',
-    nextFollowup: opts.nextFollowup || '',
-    nextAction: opts.nextAction || '',
-    source: 'local'
-  };
-  // Save locally first (instant)
-  _saveLocalNote(id, entry);
-  // Post to sheet (async)
-  const res = await postToSheet({
-    action: 'log_interaction',
-    personId: id,
-    personName: personData?.name || id,
-    personType,
-    date: today,
-    interactionType: entry.interactionType,
-    direction: entry.direction,
-    notes: text.trim(),
-    nextFollowup: entry.nextFollowup,
-    nextAction: entry.nextAction
-  });
-  if (res.ok) {
-    // Remove local copy once confirmed saved to sheet
-    const all = _getLocalNotes(id).filter(n => n.ts !== entry.ts);
-    localStorage.setItem('sil_notes_'+id, JSON.stringify(all));
-  }
-}
-
 function renderNotes(id, containerId) {
   const notes = getNotes(id);
   const el = document.getElementById(containerId);
   if (!el) return;
-  if (!notes.length) { el.innerHTML = '<div class="sub" style="font-size:11px;padding:8px 0">No interactions logged yet.</div>'; return; }
-  const typeIcon = { 'Call':'📞', 'WhatsApp':'💬', 'Email':'✉️', 'Meeting':'🤝', 'Follow-up':'✅', 'Note':'📝' };
+  if (!notes.length) { el.innerHTML = '<div class="sub" style="font-size:11px;padding:8px 0">No notes yet</div>'; return; }
   el.innerHTML = notes.slice().reverse().map(n=>`
     <div style="background:#060d14;border-radius:6px;padding:8px 10px;margin-bottom:6px;border-left:2px solid var(--teal)">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
-        <div style="font-size:11px;color:var(--muted)">${new Date(n.ts).toLocaleString('en-SG',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
-        <div style="font-size:10px;color:var(--teal)">${typeIcon[n.interactionType]||'📝'} ${n.interactionType||''}</div>
-      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px">${new Date(n.ts).toLocaleString('en-SG',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
       <div style="font-size:12px;color:var(--text);line-height:1.5">${n.text}</div>
-      ${n.nextFollowup ? `<div style="font-size:10px;color:var(--amber);margin-top:4px">⏰ Next follow-up: ${n.nextFollowup}</div>` : ''}
-      ${n.nextAction   ? `<div style="font-size:10px;color:var(--muted);margin-top:2px">→ ${n.nextAction}</div>` : ''}
-      ${n.source==='local'?'<div style="font-size:9px;color:var(--muted)">⏳ saving...</div>':''}
     </div>`).join('');
 }
-
 function submitNote(id, inputId, containerId) {
   const input = document.getElementById(inputId);
-  const typeEl = document.getElementById('noteType_'+id);
   if (!input||!input.value.trim()) return;
-  const intType = typeEl ? typeEl.value : 'Note';
-  addNote(id, input.value, intType==='Follow-up'?'followup':'note', { interactionType: intType });
+  addNote(id, input.value);
   input.value = '';
   renderNotes(id, containerId);
 }
 
 // ── 60-DAY FOLLOW-UP CHECK ────────────────────────────────────────────────
 function getLastFollowUp(id) {
-  const notes = getNotes(id);
-  const fu = notes.filter(n=>n.type==='followup'||n.interactionType==='Follow-up');
-  if (!fu.length) {
-    // Fall back to lastContact from sheet
-    const c = CLIENTS_DATA.find(x=>x.id===id) || COLLABS_DATA.find(x=>x.id===id);
-    if (c && c.lastContact) return new Date(c.lastContact);
-    return null;
-  }
-  return new Date(fu[fu.length-1].ts);
+  try {
+    const notes = getNotes(id);
+    const fu = notes.filter(n=>n.type==='followup');
+    if (!fu.length) return null;
+    return new Date(fu[fu.length-1].ts);
+  } catch { return null; }
 }
 function daysSinceFollowUp(id) {
   const last = getLastFollowUp(id);
   if (!last) return 999;
   return Math.floor((new Date()-last)/86400000);
 }
-async function markFollowUpDone(id, note='') {
-  const nf = document.getElementById('nextFollowup_'+id)?.value || '';
-  const na = document.getElementById('nextAction_'+id)?.value || '';
-  await addNote(id, note||'Follow-up done', 'followup', {
-    interactionType: 'Follow-up',
-    nextFollowup: nf,
-    nextAction: na
-  });
+function markFollowUpDone(id, note='') {
+  addNote(id, note||'Follow-up done', 'followup');
   followedUp[id] = true;
   localStorage.setItem('sil_followedup', JSON.stringify(followedUp));
   renderHome();
-}
-
-// ── ADD NEW PERSON ────────────────────────────────────────────────────────
-async function submitAddClient() {
-  const g = id => document.getElementById(id)?.value?.trim() || '';
-  const name = g('addC_name');
-  if (!name) { alert('Name is required'); return; }
-  const btn = document.getElementById('addC_btn');
-  btn.textContent = 'Saving...'; btn.disabled = true;
-  const res = await postToSheet({
-    action: 'add_client',
-    name, dob: g('addC_dob'), gender: g('addC_gender'),
-    nationality: g('addC_nat'), mobile: g('addC_mobile'),
-    email: g('addC_email'), notes: g('addC_notes'), nextAction: g('addC_action')
-  });
-  btn.disabled = false;
-  if (res.ok) {
-    alert(`✅ ${name} added as ${res.newId}. Sync to see them in your client list.`);
-    document.querySelectorAll('#addClientForm input, #addClientForm textarea').forEach(el => el.value = '');
-    btn.textContent = 'Add Client';
-    syncData();
-  } else {
-    alert('Error: ' + (res.error||'Unknown error'));
-    btn.textContent = 'Add Client';
-  }
-}
-
-async function submitAddCollab() {
-  const g = id => document.getElementById(id)?.value?.trim() || '';
-  const name = g('addCO_name');
-  if (!name) { alert('Name is required'); return; }
-  const btn = document.getElementById('addCO_btn');
-  btn.textContent = 'Saving...'; btn.disabled = true;
-  const res = await postToSheet({
-    action: 'add_collab',
-    name, location: g('addCO_loc'), role: g('addCO_role'),
-    mobile: g('addCO_mobile'), email: g('addCO_email'),
-    notes: g('addCO_notes'), nextAction: g('addCO_action')
-  });
-  btn.disabled = false;
-  if (res.ok) {
-    alert(`✅ ${name} added as ${res.newId}. Sync to see them in your collabs list.`);
-    document.querySelectorAll('#addCollabForm input, #addCollabForm textarea').forEach(el => el.value = '');
-    btn.textContent = 'Add Collab';
-    syncData();
-  } else {
-    alert('Error: ' + (res.error||'Unknown error'));
-    btn.textContent = 'Add Collab';
-  }
-}
-
-function renderAddTab() {
-  const el = document.getElementById('tab-add');
-  el.innerHTML = `
-    <div style="padding:16px;max-width:480px;margin:0 auto">
-      <div class="section-title" style="margin-top:0">Add New Client</div>
-      <div id="addClientForm" style="background:var(--surface);border-radius:10px;padding:14px;margin-bottom:20px">
-        <input id="addC_name" class="search-input" placeholder="Full name *" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <input id="addC_dob" class="search-input" type="date" placeholder="Date of birth" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <select id="addC_gender" style="flex:1;background:#0a1520;color:var(--text);border:1px solid #1e3a4a;border-radius:6px;padding:9px;font-size:12px">
-            <option value="">Gender</option><option>Male</option><option>Female</option>
-          </select>
-          <input id="addC_nat" class="search-input" placeholder="Nationality" style="flex:2;font-size:12px;padding:9px 10px"/>
-        </div>
-        <input id="addC_mobile" class="search-input" placeholder="Mobile (8 digits)" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <input id="addC_email" class="search-input" placeholder="Email" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <textarea id="addC_notes" class="search-input" placeholder="Notes (how you know them, intro context...)" style="width:100%;margin-bottom:8px;font-size:12px;padding:9px 12px;min-height:60px;resize:vertical"></textarea>
-        <input id="addC_action" class="search-input" placeholder="First action / next step" style="width:100%;margin-bottom:12px;font-size:12px;padding:9px 12px"/>
-        <button id="addC_btn" class="action-btn btn-teal" style="width:100%;padding:10px;font-size:13px" onclick="submitAddClient()">Add Client</button>
-      </div>
-
-      <div class="section-title">Add New Collaborator</div>
-      <div id="addCollabForm" style="background:var(--surface);border-radius:10px;padding:14px;margin-bottom:20px">
-        <input id="addCO_name" class="search-input" placeholder="Full name *" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <input id="addCO_loc" class="search-input" placeholder="Location (e.g. BKK, TH)" style="flex:1;font-size:12px;padding:9px 10px"/>
-          <input id="addCO_role" class="search-input" placeholder="Role (Lawyer / Banker...)" style="flex:1;font-size:12px;padding:9px 10px"/>
-        </div>
-        <input id="addCO_mobile" class="search-input" placeholder="Mobile" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <input id="addCO_email" class="search-input" placeholder="Email" style="width:100%;margin-bottom:8px;font-size:13px;padding:9px 12px"/>
-        <textarea id="addCO_notes" class="search-input" placeholder="Notes (how you met, what they do...)" style="width:100%;margin-bottom:8px;font-size:12px;padding:9px 12px;min-height:60px;resize:vertical"></textarea>
-        <input id="addCO_action" class="search-input" placeholder="First action / next step" style="width:100%;margin-bottom:12px;font-size:12px;padding:9px 12px"/>
-        <button id="addCO_btn" class="action-btn btn-teal" style="width:100%;padding:10px;font-size:13px" onclick="submitAddCollab()">Add Collaborator</button>
-      </div>
-    </div>`;
 }
 
 // ── EXPORT FOR CLAUDE ─────────────────────────────────────────────────────
@@ -1533,4 +1286,662 @@ const CONTACTS_DATA = [
   {id:"NC-0183",name:"Pimwan",phone:"822939878",cat:"Uncategorised",hint:"",cluster:""},
   {id:"NC-0184",name:"Benjamin Ng |",phone:"96166466",cat:"Uncategorised",hint:"",cluster:""},
   {id:"NC-0185",name:"Uncle Hong NAC",phone:"164474331",cat:"Family",hint:"Family",cluster:""},
-  {id:"NC-0186",name:"Aldrin John",phone
+  {id:"NC-0186",name:"Aldrin John",phone:"91198818",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0187",name:"Guan Yi Raphael Team",phone:"97777654",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0188",name:"Leon Leung | Mandai",phone:"82010230",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0189",name:"Kristy The Flower Valleyy",phone:"98261986",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0190",name:"Gary Lee |",phone:"96811567",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0191",name:"Charisyiying Preferred Acqui",phone:"93224499",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0192",name:"Alpha Plus G&S PL Trophy",phone:"85113859",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0193",name:"Raymond Cheung | Alpha Millennia Technology",phone:"88141051",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0194",name:"Zhiwei Poly Classmate",phone:"92359844",cat:"Uncategorised",hint:"School",cluster:""},
+  {id:"NC-0195",name:"Sam Tay |",phone:"96739366",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0196",name:"Raymond Chua | (Chairman, Sim Lim) Chua Clan",phone:"96373737",cat:"Uncategorised",hint:"Chua Clan, Chai Family",cluster:""},
+  {id:"NC-0197",name:"Tan Gabriel Rec",phone:"93830894",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0198",name:"Hermant | Peter Wedding",phone:"86067964",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0199",name:"Ivy",phone:"90955580",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0200",name:"Zong",phone:"80283625",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0201",name:"Helen Kuek |",phone:"90184606",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0202",name:"Doreen |",phone:"86934638",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0203",name:"Amar Hiking Friend",phone:"85866162",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0204",name:"Amy Massage",phone:"86190498",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0205",name:"June",phone:"98735647",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0206",name:"Alvin Chua | Ji Yang",phone:"98289919",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0207",name:"Aloysious Tan | PAP Youth & Property Manager For Town Council",phone:"96948389",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0208",name:"John",phone:"97560727",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0209",name:"Ivon",phone:"9487385453",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0210",name:"Tommy Tan Golf Coaching",phone:"96346667",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0211",name:"Ryan |",phone:"94500900",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0212",name:"Nu London",phone:"7355807631",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0213",name:"efoopl Elaine |",phone:"7847180035",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0214",name:"Jeremy Lee FPC HQ Guards",phone:"81333991",cat:"Uncategorised",hint:"NS/Army",cluster:""},
+  {id:"NC-0215",name:"Lee",phone:"68982505",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0216",name:"Yusof | Hiking Meetup",phone:"87544414",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0217",name:"Andy Tan | Manager Car",phone:"91880131",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0218",name:"Frankie |",phone:"98170671",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0219",name:"Ken Leo | General Waterproofing & Service",phone:"93867371",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0220",name:"Eric",phone:"87288988",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0221",name:"May é°é Chua Clan MY",phone:"126843945",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0222",name:"pkpamkmt (Amk Muaythai) New",phone:"89123383",cat:"Uncategorised",hint:"Hobby",cluster:""},
+  {id:"NC-0223",name:"Ms Lynn Tan Katie Tan Sister Or Agent",phone:"81581938",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0224",name:"Chu Wai |",phone:"98923365",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0225",name:"Pang |",phone:"127749168",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0226",name:"Ngee",phone:"92703597",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0227",name:"Sara |",phone:"97431785",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0228",name:"Astrologer",phone:"96896257",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0229",name:"Ah Siong | Lee Heng Vehicle Services",phone:"93738887",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0230",name:"Sultan Sultan Lombok Guide",phone:"87761458318",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0231",name:"Meen Book Car",phone:"142720930",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0232",name:"Anthony (sg 2)",phone:"84759965",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0233",name:"Nhung",phone:"83049724",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0234",name:"Gwen Low |",phone:"91393280",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0235",name:"ç¦å»ºå¬ä¼",phone:"67691098",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0236",name:"Bob",phone:"91825443",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0237",name:"Foo Jun Meng My",phone:"127129915",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0238",name:"Yhod Kittisak Port Agent",phone:"935522644",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0239",name:"Wei Qiang | SCB",phone:"94238198",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0240",name:"Peter Chee |",phone:"96382176",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0241",name:"Augustine",phone:"81002388",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0242",name:"Nancy Relative Paynow",phone:"82674091",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0243",name:"chuansheng Penang Chua Lawyer In KL",phone:"124189740",cat:"Uncategorised",hint:"Malaysia, Chua Clan",cluster:""},
+  {id:"NC-0244",name:"Roxy | Hiking Meetup",phone:"90399214",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0245",name:"Bryan",phone:"97115708",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0246",name:"Adam Koh | Unusually",phone:"91715659",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0247",name:"L S. H Jeremy |",phone:"81350690",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0248",name:"Vijayalakshmi Babu Rao |",phone:"9945811441",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0249",name:"è¡è´µç¾ Pahang",phone:"199888468",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0250",name:"Maj Chin Ict",phone:"91001646",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0251",name:"Lee Jia Hao Alpha FA",phone:"88273608",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0252",name:"Thea |",phone:"98365423",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0253",name:"Tomlimkit |",phone:"93392338",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0254",name:"Sabrina |",phone:"88450911",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0255",name:"Derek",phone:"85229837",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0256",name:"Alton Neo",phone:"98769188",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0257",name:"Sophie å°å¤ å°å¸",phone:"86990256",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0258",name:"Taufik | Shell Punggol",phone:"90672573",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0259",name:"Francis |",phone:"97346780",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0260",name:"Andy Chua",phone:"81135600",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0261",name:"KT |",phone:"96661345",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0262",name:"Liang Soon | Grab Driver",phone:"96161744",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0263",name:"Hui Yang Isaiah Team",phone:"97932442",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0264",name:"Joseph |",phone:"88855421",cat:"Uncategorised",hint:"IFA/IPP",cluster:""},
+  {id:"NC-0265",name:"A Dott Goh -HP |",phone:"dorothy.gohlh@gmail.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0266",name:"Bruce",phone:"90793301",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0267",name:"Chua Ah Lee | JYC Chua Clan",phone:"96301817",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0268",name:"Chua Jia Hui Singing Competition",phone:"96964454",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0269",name:"Vincent |",phone:"93539985",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0270",name:"Ah Hong | 1s",phone:"82899989",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0271",name:"Denis è¡åºä¼ Penang",phone:"125186123",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0272",name:"Kenn",phone:"97227687",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0273",name:"Ashlynn Zhi",phone:"97910017",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0274",name:"DING MOI KOOI Zhi weiâs Mother",phone:"91196819",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0275",name:"88shopdirect",phone:"84995045",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0276",name:"Brian",phone:"91152816",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0277",name:"Brandon |",phone:"92953626",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0278",name:"Anthony |",phone:"96759806",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0279",name:"Daniel Ong | MY",phone:"167733339",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0280",name:"Steven Lee | Grab",phone:"94771965",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0281",name:"Azman | Grab",phone:"81855357",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0282",name:"Shiro",phone:"84906033",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0283",name:"Sir Benjamin Tan",phone:"96473786",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0284",name:"Ah Lek NAC",phone:"96449790",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0285",name:"Shinichi Nik |",phone:"86660407",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0286",name:"Ray",phone:"98303602",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0287",name:"Kiam Teng | Chua Clan",phone:"91390109",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0288",name:"Syah | Book",phone:"177337483",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0289",name:"Khidir Poly Classmate",phone:"92258227",cat:"Uncategorised",hint:"School",cluster:""},
+  {id:"NC-0290",name:"Who",phone:"85363805",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0291",name:"Kayden yap",phone:"81133233",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0292",name:"Sophia |",phone:"84780079",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0293",name:"Poh Xian",phone:"94749392",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0294",name:"SS",phone:"96353237",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0295",name:"Mary Xi Yao Grp1",phone:"98769399",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0296",name:"GK |",phone:"96679884",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0297",name:"Jean |",phone:"91070275",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0298",name:"ç«¥ç·¯å¼· Adrian Tong M",phone:"94359199",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0299",name:"Pei",phone:"97107089",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0300",name:"Imanol Lombok Spain Neighbour",phone:"659523469",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0301",name:"Amy | Hiking",phone:"96189786",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0302",name:"Doran Lum | Grab BMW No Kids Dad",phone:"81265771",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0303",name:"Nelson",phone:"97560618",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0304",name:"Oon Siew Tin ( Siew De Wife) Singing",phone:"90221866",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0305",name:"David Tan | Camry",phone:"91478462",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0306",name:"Suzane Xi Yao Grp 1",phone:"87290049",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0307",name:"Stephanie Wong äºä¼¯æ¯",phone:"80101109",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0308",name:"Wong Jun",phone:"83474331",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0309",name:"naPirlo",phone:"106576390",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0310",name:"Mai",phone:"333158710",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0311",name:"Stephanie çç äºä¼¯æ¯",phone:"92229200",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0312",name:"Rina | Adeline Friend",phone:"81267658",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0313",name:"Chai Young | CK Brother",phone:"87998977",cat:"Family",hint:"Chai Family, Family",cluster:""},
+  {id:"NC-0314",name:"Chan Bros Emergency Number",phone:"96749237",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0315",name:"Leong Hu Kit David Landlord",phone:"98512363",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0316",name:"Cecilia Ng Referred By Kia Ting",phone:"90025563",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0317",name:"David Suwandi | Ex Renzo Tonin",phone:"93585742",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0318",name:"Ami",phone:"88817818",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0319",name:"Kua æ¯é§ç¨",phone:"125545650",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0320",name:"Amy P ð¸ð¬ |",phone:"92338621",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0321",name:"Toh Cheng Hua | Hokkien Huay Guan",phone:"96268304",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0322",name:"Max Ong Edge",phone:"96325822",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0323",name:"Queenie & Jimmie Paylah",phone:"98448920",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0324",name:"Mag Tan |",phone:"97885051",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0325",name:"SK",phone:"97364744",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0326",name:"Tom |",phone:"92475410",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0327",name:"Thida |",phone:"96450340",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0328",name:"Kai Jie | Mandai Golf",phone:"98286990",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0329",name:"Guide Number Korea",phone:"1088785069",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0330",name:"Isaiah",phone:"96451177",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0331",name:"Mei Peng | JYC Chua Clan Secretary",phone:"97813908",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0332",name:"Skythan9",phone:"88918653",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0333",name:"Christene | Aunty Nancy Paynow",phone:"82362709",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0334",name:"Thomas Tan |",phone:"96205388",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0335",name:"Jongsougs",phone:"1172470865",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0336",name:"Kheng Ng - Singlife BDM",phone:"90266390",cat:"Industry",hint:"Insurance Industry",cluster:""},
+  {id:"NC-0337",name:"Adrian - CarTimes Group | Chua Clan",phone:"98182884",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0338",name:"Ashley Poly Classmate",phone:"81577089",cat:"Uncategorised",hint:"School",cluster:""},
+  {id:"NC-0339",name:"Uncle Vincent",phone:"97844961",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0340",name:"Paul",phone:"97502858",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0341",name:"Bidhan |",phone:"93880647",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0342",name:"Tsing",phone:"126145401",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0343",name:"æ¯shui Bao",phone:"98556666",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0344",name:"DANNY",phone:"949070955",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0345",name:"Cindy Hiking Friend",phone:"91261589",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0346",name:"Ajiz | Grab Driver (PHV Just Renewed Mar, Prefer Installment)",phone:"89227951",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0347",name:"Mikey (James) Franzie",phone:"98631036",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0348",name:"Bing",phone:"81683000",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0349",name:"Isalyn |",phone:"87980955",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0350",name:"Hui Kheng | Hiking",phone:"96191936",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0351",name:"Singapore Embassy Thailand",phone:"818443580",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0352",name:"Easybook",phone:"103935718",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0353",name:"Dan | PIAS-",phone:"98164913",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0354",name:"Patrick Loh Ge Patrick Koh",phone:"83181341",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0355",name:"Josephine Cycling Meetup",phone:"85544860",cat:"Uncategorised",hint:"IFA/IPP",cluster:""},
+  {id:"NC-0356",name:"Ivan Ho | Next",phone:"94599090",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0357",name:"Nextee",phone:"96601575",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0358",name:"Roslee PHV | Apr 2024",phone:"96656374",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0359",name:"Vincent Lor | Cyrus Ex Colleague",phone:"83793251",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0360",name:"Catherine Yong | Etiqa GI",phone:"97933755",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0361",name:"Chi",phone:"94880766",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0362",name:"Bernard Teo Eng Hock | China Singapore Suzhou Industrial",phone:"96305330",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0363",name:"Joey Zhang | DirectAsia",phone:"94888031",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0364",name:"Supansa (Jeep) Thai Teachrr",phone:"91017906",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0365",name:"Sadeaf",phone:"92267621",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0366",name:"Bracken |",phone:"96309704",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0367",name:"è¡å®å³Komson Silprachawong Chua Clan",phone:"816448565",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0368",name:"Jun Hao | Mandai Golf",phone:"96547520",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0369",name:"Ricky Ah",phone:"97974518",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0370",name:"Mike | Banquet Manager",phone:"96555053",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0371",name:"Saif Paynow",phone:"93437097",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0372",name:"Jin Ting",phone:"98007083",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0373",name:"Xiao Ling |",phone:"82820562",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0374",name:"Siva | Grab",phone:"81129574",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0375",name:"Li Ann",phone:"90224918",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0376",name:"Ben | Tada Want",phone:"97893174",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0377",name:"Mangsit Surf School",phone:"87864040744",cat:"Uncategorised",hint:"School",cluster:""},
+  {id:"NC-0378",name:"Awana",phone:"327181118",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0379",name:"Allenns Chuah",phone:"126499643",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0380",name:"Khairul TADA | Dehall",phone:"98489111",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0381",name:"Shawn Xi Yao Grp 1",phone:"80337536",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0382",name:"Carou",phone:"97611272",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0383",name:"Ibrahim PHV | Dec 2023",phone:"90025264",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0384",name:"SMU4162A",phone:"90033931",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0385",name:"Jameni Huang Carmen |",phone:"83593266",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0386",name:"Anthony Ho Shen Fong |Raphael team",phone:"98997954",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0387",name:"Jeremy Tan | Singlife",phone:"92729976",cat:"Uncategorised",hint:"Insurance Industry",cluster:""},
+  {id:"NC-0388",name:"Foong Kheng |",phone:"83284381",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0389",name:"Ming  ãã³  à¸¡à¸´à¸ Thai 3 Student",phone:"97515751",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0390",name:"Sidney Qin Branch Manager",phone:"98359051",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0391",name:"Cassandra Low ï½ ã",phone:"94502560",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0392",name:"Jasmine |",phone:"85868015",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0393",name:"Teo Jie Ming Cx?? PoF",phone:"88099025",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0394",name:"Quincy | Employment Biz",phone:"91304050",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0395",name:"Parsa |",phone:"98566044",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0396",name:"Honda |",phone:"93691504",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0397",name:"Albert [CHUN YONG] | Chua Clan",phone:"96180890",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0398",name:"Gin |",phone:"89385767",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0399",name:"Shannen Goh | Li Ann Friend",phone:"87395920",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0400",name:"Danny Choo",phone:"98628829",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0401",name:"Jeff | Peter Wedding Emcee",phone:"90292944",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0402",name:"Bao Rong |",phone:"197249671",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0403",name:"Vino |",phone:"81614406",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0404",name:"Evelyn Pru",phone:"98573260",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0405",name:"Yony",phone:"90618665",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0406",name:"Siew",phone:"96180561",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0407",name:"è¡MING KUET Pahang",phone:"128868484",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0408",name:"Alvin Soh | Rhb Head",phone:"92733977",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0409",name:"Vinson",phone:"98388608",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0410",name:"uncle",phone:"1136236705",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0411",name:"Ziying Sister Ziyan |",phone:"87929631",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0412",name:"Matthew Sturgess |",phone:"96992179",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0413",name:"Goh Song Ee",phone:"96632139",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0414",name:"Jimmy |",phone:"93682168",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0415",name:"Basu",phone:"90352674",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0416",name:"Learn",phone:"88226727",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0417",name:"Shrikant",phone:"81680275",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0418",name:"P@trisia Xi Yao",phone:"86141304",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0419",name:"Chai Chung Hwee@,è¡å¿ è¾ è¾æ¯è¡é¿",phone:"123923626",cat:"Uncategorised",hint:"Chai Family",cluster:""},
+  {id:"NC-0420",name:"Katherina Hiking Friend",phone:"88298030",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0421",name:"Liz Loh | Hiking Meetup",phone:"97602259",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0422",name:"Kenneth Lim | Shell Punggol",phone:"96552254",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0423",name:"Kelvin Poh | PIAS BDM",phone:"98789098",cat:"Industry",hint:"Insurance Industry",cluster:""},
+  {id:"NC-0424",name:"CK Pang",phone:"93484589",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0425",name:"Jimmy Phua | Lexus",phone:"97953999",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0426",name:"Kong | Grab W Kids Owner",phone:"82858728",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0427",name:"Peter Hoh",phone:"94506118",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0428",name:"Roland Ict",phone:"87777768",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0429",name:"Eileen Wong |",phone:"96560029",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0430",name:"Aik Chin Hin Machinery Co",phone:"89232880",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0431",name:"Jasper Tay | Coventry Uni",phone:"90013304",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0432",name:"Mia Parma | Plastic Credit Exchange",phone:"9175198047",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0433",name:"Mið |",phone:"91749276",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0434",name:"Jeffrey Lee Yes Pty",phone:"96179459",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0435",name:"Bernard //",phone:"97713288",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0436",name:"Cecilia Yap My Mother",phone:"88601823",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0437",name:"calvin Thai Level 2 Classmate",phone:"82181666",cat:"Uncategorised",hint:"School",cluster:""},
+  {id:"NC-0438",name:"Scott",phone:"94758804",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0439",name:"Khoon",phone:"167649258",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0440",name:"Cheong Yuan",phone:"92273965",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0441",name:"Joey",phone:"83216917",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0442",name:"Good Samaritan",phone:"91282332",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0443",name:"Anuar |",phone:"96496747",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0444",name:"Keith",phone:"91381965",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0445",name:"Anita Cheney | Singapaw",phone:"91875477",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0446",name:"Kelvin Hyflo",phone:"86686867",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0447",name:"Hwee",phone:"85006869",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0448",name:"Ibrew",phone:"85337583",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0449",name:"Who 123",phone:"86701966",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0450",name:"Tan Wu Hao Agent",phone:"91714547",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0451",name:"è¡æ¥æ³ Sarawak",phone:"168679299",cat:"Uncategorised",hint:"Kuching/Sarawak",cluster:""},
+  {id:"NC-0452",name:"Sinar Eco",phone:"142523678",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0453",name:"Travis | Chess Meetup",phone:"97314164",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0454",name:"Jaslyn",phone:"91015599",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0455",name:"Cindy",phone:"98220128",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0456",name:"Chua Zhi Hong |",phone:"98769508",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0457",name:"Julz Nancy Paynow",phone:"82252399",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0458",name:"Yang Xun Xing",phone:"90815876",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0459",name:"Richard Kong | Fixed D",phone:"63527125",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0460",name:"Ah Yau Boss Gm Boss",phone:"1111362399",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0461",name:"Nitty Company",phone:"84271452",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0462",name:"Joven Chua | Chua Clan",phone:"98275539",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0463",name:"Treerapot",phone:"898933987",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0464",name:"Raphael Team Lead",phone:"98933388",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0465",name:"Tang Li Zhen |",phone:"83320783",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0466",name:"Bekok",phone:"1110600927",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0467",name:"Amelia",phone:"90258733",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0468",name:"David Yeow NAC",phone:"97914376",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0469",name:"Ah",phone:"94699553",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0470",name:"James Frenzie",phone:"96668954",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0471",name:"Dk |",phone:"91175207",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0472",name:"Andy",phone:"18861473546",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0473",name:"Mong Chu Long 2 Cx",phone:"87822591",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0474",name:"Ankur |",phone:"81375947",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0475",name:"Seyma Dutch Turkish |",phone:"641452522",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0476",name:"Shinji Chua | Chua Chwee",phone:"96249669",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0477",name:"Jessica Tran |",phone:"98277633",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0478",name:"Abhinay Venkatesh |",phone:"9833200083",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0479",name:"Chua Leong Hin æ³å¾é¡¾é® ï½Chua Clan",phone:"96233886",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0480",name:"Pro Jimmy | Mandai",phone:"96153390",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0481",name:"Ong Bee Chip | Hokkien Ong Clansmen General Association",phone:"96779089",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0482",name:"Shazalee | Tada Driver",phone:"82011455",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0483",name:"Jacqueline Quek |",phone:"91125199",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0484",name:"PurpleRoses",phone:"122259119",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0485",name:"Chong Yee Chua Clan",phone:"124081087",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0486",name:"Soon | TADA",phone:"97535722",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0487",name:"Aileen | Hiking",phone:"97959189",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0488",name:"Nhat Khoa Ngo",phone:"84265510",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0489",name:"Wilson",phone:"82245304",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0490",name:"Ms Xie",phone:"92988763",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0491",name:"Lily Landlord",phone:"92214868",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0492",name:"Tiffany Yeoh | Alicia team",phone:"91755355",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0493",name:"Chua King Wah | JYC Chua Clan",phone:"96364378",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0494",name:"Georgina Vashti Victor |",phone:"92952114",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0495",name:"Lillian",phone:"97777291",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0496",name:"Rita |",phone:"97912944",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0497",name:"Who",phone:"83774631",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0498",name:"â¾ Ben Poly Classmate",phone:"97256989",cat:"Uncategorised",hint:"School",cluster:""},
+  {id:"NC-0499",name:"Chua Siak Haw ð±|",phone:"96883704",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0500",name:"Chan | Grab Will Done 3",phone:"98535272",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0501",name:"Wee Bilingual",phone:"97679125",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0502",name:"Ah Tan Tour Guide",phone:"125513101",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0503",name:"Octhavia  è¡åè JASON CHUA",phone:"126395386",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0504",name:"Chua Shew Kun",phone:"86088825",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0505",name:"Yeo Teck Hoon",phone:"90033818",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0506",name:"Wei Jack Toh",phone:"98003002",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0507",name:"Khru Nujkanit Cha Thai",phone:"83338559",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0508",name:"Jun Hao | Grab",phone:"91110718",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0509",name:"Yolande Ong Chui Huay Lim",phone:"96250489",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0510",name:"Jack",phone:"96737737",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0511",name:"Aw Wei",phone:"96648640",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0512",name:"Muhammed",phone:"98647287",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0513",name:"Jason Lim | Hiking",phone:"88124518",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0514",name:"James Lee",phone:"81882166",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0515",name:"Gary | Jude Friend",phone:"96658858",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0516",name:"Richard",phone:"9178177848",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0517",name:"Gavin",phone:"91884094",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0518",name:"Isabelle |",phone:"98523178",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0519",name:"Pratheep",phone:"90101198",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0520",name:"Adrian |",phone:"97642168",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0521",name:"Zellyn Li |",phone:"91860430",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0522",name:"Dalston",phone:"97928351",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0523",name:"Peace Kembangan",phone:"83881598",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0524",name:"Lynn Landlord?",phone:"84288900",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0525",name:"Sam Tay | Shell Punggol (DA)",phone:"88280040",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0526",name:"Uncle Kevin",phone:"96877456",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0527",name:"Elsie |",phone:"96176565",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0528",name:"Dixon Fong",phone:"93968871",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0529",name:"Aunty Nancy New no.",phone:"81467616",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0530",name:"Michael Chua",phone:"91558185",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0531",name:"Jan Phua | Asst Director Wealth",phone:"81825355",cat:"Uncategorised",hint:"Corporate",cluster:""},
+  {id:"NC-0532",name:"Lee Sia",phone:"87885262",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0533",name:"Xanna |",phone:"93683213",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0534",name:"Jason |",phone:"96666405",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0535",name:"Eric | Chow",phone:"92347688",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0536",name:"Doris Ong |",phone:"96756977",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0537",name:"Peter Chin Wei Liang",phone:"93891643",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0538",name:"Bernard EDGE &NYP",phone:"97577116",cat:"Uncategorised",hint:"School, Hobby",cluster:""},
+  {id:"NC-0539",name:"Valen (Adeline)",phone:"92734944",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0540",name:"Li",phone:"91698708",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0541",name:"Evelyn | Hiking Meetup",phone:"96466022",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0542",name:"Joel Lee Cindy Looi  OCBC friend",phone:"97779478",cat:"Uncategorised",hint:"Banking",cluster:""},
+  {id:"NC-0543",name:"Edwin",phone:"90052215",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0544",name:"Sumon Landlordâs Assistant",phone:"81749262",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0545",name:"Jimmy Poh | Watch",phone:"98190974",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0546",name:"Fu Yang Illumina Hiking Friend",phone:"87683824",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0547",name:"SMR5359J",phone:"92205860",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0548",name:"Lorna Hiking Friend",phone:"98338743",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0549",name:"IFAST Financial (SG)",phone:"65572000",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0550",name:"Yong Ji (Joseph) è© ç¨· | Chua Clan",phone:"97708168",cat:"Uncategorised",hint:"Chua Clan, IFA/IPP",cluster:""},
+  {id:"NC-0551",name:"Jose Reyes Real Or Fake",phone:"7729537949",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0552",name:"Transtar",phone:"173948572",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0553",name:"Reuben |",phone:"98378848",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0554",name:"Paula/Ploy Sirirath | Qi Xiang Friend",phone:"993562955",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0555",name:"è¡ç¦æ Penang",phone:"165572719",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0556",name:"Kim (Golf Group Friend)",phone:"87938753",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0557",name:"Amos Chua",phone:"91718366",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0558",name:"Chua Shew Kun | Tada",phone:"86088895",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0559",name:"Qixiang Ntu Biz Chinese",phone:"96572234",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0560",name:"Joyce Ting Singlife",phone:"90221466",cat:"Uncategorised",hint:"Insurance Industry",cluster:""},
+  {id:"NC-0561",name:"Bus & Van",phone:"127185595",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0562",name:"Nancy Hoon Siew Guet Pias Agent",phone:"90021011",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0563",name:"Desmond Tan Kp |",phone:"96788438",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0564",name:"Xin",phone:"94893667",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0565",name:"Edmund | PIAS",phone:"96988284",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0566",name:"Ethan Lua | Li Ann Friend",phone:"92995761",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0567",name:"Abishek",phone:"9611255538",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0568",name:"Ken | Income",phone:"98676369",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0569",name:"Yong",phone:"83603445",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0570",name:"Choy Kam Hoomg Pahang",phone:"109119706",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0571",name:"Richard Hiking Friend",phone:"90667115",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0572",name:"Alston Chok",phone:"81020999",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0573",name:"Kent Jee Branch",phone:"81181573",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0574",name:"Kanthes | PAP Youth & Dip In Legal Studies",phone:"84684821",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0575",name:"Richard Tang",phone:"88587213",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0576",name:"Kenneth Lim Zi Jun IS",phone:"96626256",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0577",name:"Sutharman | Grab",phone:"96949163",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0578",name:"Direct Asia (Overseas)",phone:"69913555",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0579",name:"Om Dubey Bangkok Tailor @Royal Orchid Sheraton Hotel",phone:"864030461",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0580",name:"David |",phone:"83338363",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0581",name:"Gideon Tan |",phone:"81127778",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0582",name:"Audrey PIAS FA",phone:"93397800",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0583",name:"æ°å å¡åèè¡æ¿å¤",phone:"84695018",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0584",name:"Sembawang Coubtry Club",phone:"67510320",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0585",name:"Thai Hat Yai Tawee",phone:"818966195",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0586",name:"è¡Thiam Fook Pahang",phone:"199186220",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0587",name:"Stanford Language Centre",phone:"97379914",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0588",name:"Chua Yueh Siang",phone:"96575653",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0589",name:"Kenz Koh |",phone:"92229844",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0590",name:"Johann |Mandai Golf",phone:"98951292",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0591",name:"Jesslyn Wijaya Sin Monk Teck",phone:"82983647",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0592",name:"Li Ann Paynow",phone:"94264119",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0593",name:"Chua Kuan Hai Chua Clan",phone:"97356666",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0594",name:"Kenneth Neo Elusyf",phone:"81389339",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0595",name:"æå¨",phone:"166822999",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0596",name:"Chef Eric",phone:"93835454",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0597",name:"Lawrence Lan |",phone:"94534572",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0598",name:"Alvin Yeo |",phone:"96233432",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0599",name:"Shong Hoi",phone:"97266938",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0600",name:"Glenn Yeo",phone:"96353173",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0601",name:"tyt Dance",phone:"84305632",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0602",name:"Tanjit |",phone:"96247474",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0603",name:"Violet (èæ¨ï¼",phone:"92989038",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0604",name:"Weishen Bruce Friend",phone:"97607952",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0605",name:"AIG 24 Hour Overseas Emergency",phone:"67332552",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0606",name:"Yijie",phone:"92238220",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0607",name:"Cindy Zhu",phone:"96322656",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0608",name:"Sam Tour Guide",phone:"97540333",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0609",name:"Pl",phone:"966236514",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0610",name:"SK Lee |",phone:"96789319",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0611",name:"Kenn Ching, CSW, FWS wine trainer",phone:"94523334",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0612",name:"Zr Venture Car Rental JB",phone:"196671525",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0613",name:"Jenny Mok Taka Voucher Buyer",phone:"90266477",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0614",name:"Den Park Property Agent",phone:"1033797302",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0615",name:"ChangYi Chay Chow Ming New No.",phone:"83368831",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0616",name:"Thu ha | Shell Attendant",phone:"91698129",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0617",name:"Cecilia My Mother New No 2024",phone:"87624928",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0618",name:"Grab Mummy",phone:"91075709",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0619",name:"Kru Be  Hat Yai",phone:"622528989",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0620",name:"4gs88export",phone:"94853383",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0621",name:"Mama House Number",phone:"62514363",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0622",name:"Jooee |",phone:"82020390",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0623",name:"Jeab Thai Teacher",phone:"623256292",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0624",name:"Scott | 6route",phone:"87806755",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0625",name:"Karen | Hiking Meetup (went",phone:"97234616",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0626",name:"Childrenâs",phone:"97304835",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0627",name:"Rozman |",phone:"1110886701",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0628",name:"CK | Mandai Golf Jason",phone:"96189129",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0629",name:"vernice ho1166 (Chris Leong Wife)",phone:"86887998",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0630",name:"Cyndy (NTUC)",phone:"cyndy.cheah@income.com.sg",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0631",name:"Kathleen Svc Banker",phone:"88581604",cat:"Uncategorised",hint:"Banking",cluster:""},
+  {id:"NC-0632",name:"Christine Heng |",phone:"86998285",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0633",name:"Aurelien",phone:"98571664",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0634",name:"Ray Tham Yew Soon | TADA play",phone:"81215412",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0635",name:"Chua Ah Choon Ken |",phone:"96186856",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0636",name:"Ken | Lek Friend",phone:"90075068",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0637",name:"Terry & Sheng Zheng |",phone:"91473765",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0638",name:"Whatsapp Support Th Esim",phone:"94781225",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0639",name:"Vincent -",phone:"96793407",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0640",name:"Maybelle Tour Guide",phone:"96749409",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0641",name:"Eddy Xin",phone:"81269382",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0642",name:"JÎµssiÎµ Øª Hiking Friend",phone:"97319528",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0643",name:"Tada1",phone:"98807411",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0644",name:"Zeng",phone:"97922972",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0645",name:"Elwin Tan",phone:"elwin.tan@cimb.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0646",name:"Elwin Tan",phone:"64103208",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0647",name:"Connect@PAP",phone:"connect@pap.org.sg",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0648",name:"Uncle Qun",phone:"124822600",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0649",name:"Jia",phone:"fongjx96@gmail.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0650",name:"Mong Chu Long Cx",phone:"87826992",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0651",name:"Che",phone:"nazira.aziz@cimb.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0652",name:"Steven Tay | Xia Men Lin",phone:"97438712",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0653",name:"Customer",phone:"cru@cimb.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0654",name:"Silvester",phone:"silvesterinsg@gmail.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0655",name:"CLS",phone:"clslang@nus.edu.sg",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0656",name:"Alvin Chua Wei | Chua Clan",phone:"96360656",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0657",name:"Silvester",phone:"silvesterwh.chua@cimb.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0658",name:"YouTrip",phone:"customer@you.co",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0659",name:"Amy æç¾å¹¼ Xia Men",phone:"96208766",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0660",name:"Evelyn TEO | Mummys PruShield Agent",phone:"87786728",cat:"Family",hint:"Family",cluster:""},
+  {id:"NC-0661",name:"Celine Cai Shulan AIA PC",phone:"98892539",cat:"Uncategorised",hint:"Insurance Industry",cluster:""},
+  {id:"NC-0662",name:"Tang Peiyi Agent",phone:"98627207",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0663",name:"Melvin Chua Chek Ngak | Chua Clan",phone:"93427766",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0664",name:"Chek Yew HQ Guards",phone:"92310211",cat:"Uncategorised",hint:"NS/Army",cluster:""},
+  {id:"NC-0665",name:"8 Medical Aesthetics Clinic",phone:"91519017",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0666",name:"William, Poh Yong | Chua Clan",phone:"96688113",cat:"Uncategorised",hint:"Chua Clan",cluster:""},
+  {id:"NC-0667",name:"TPG customer",phone:"87612345",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0668",name:"TravelClef",phone:"support@travelclef.com",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0669",name:"Cai Yichang",phone:"81827159",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0670",name:"A Dott Goh -HP |",phone:"96892010",cat:"Uncategorised",hint:"",cluster:""},
+  {id:"NC-0671",name:"Direct Asia (Overseas)",phone:"66033699",cat:"Uncategorised",hint:"",cluster:""}
+];
+
+function renderContacts() {
+  const hints = [...new Set(CONTACTS_DATA.flatMap(c=>c.hint?c.hint.split(', '):[],''))].filter(Boolean).sort();
+  let html = `<div class="search-bar"><input class="search-input" placeholder="Search contacts..." oninput="contactSearch=this.value;renderContactList()" value="${contactSearch}"/></div>`;
+  html += `<div class="filter-scroll">
+    <button class="filter-btn ${contactFilter==='All'?'active':''}" onclick="contactFilter='All';renderContacts()">All (${CONTACTS_DATA.length})</button>
+    <button class="filter-btn ${contactFilter==='hint'?'active':''}" onclick="contactFilter='hint';renderContacts()">🏷 Has Hint</button>
+    <button class="filter-btn ${contactFilter==='nohint'?'active':''}" onclick="contactFilter='nohint';renderContacts()">❓ No Hint</button>
+    ${hints.slice(0,8).map(h=>`<button class="filter-btn ${contactFilter===h?'active':''}" onclick="contactFilter='${h}';renderContacts()">${h}</button>`).join('')}
+  </div>`;
+  html += `<div id="contactList"></div>`;
+  document.getElementById('tab-contacts').innerHTML = html;
+  renderContactList();
+}
+
+function renderContactList() {
+  const q = contactSearch.toLowerCase();
+  const list = CONTACTS_DATA.filter(c => {
+    if (q && !c.name.toLowerCase().includes(q) && !c.phone.includes(q)) return false;
+    if (contactFilter === 'All') return true;
+    if (contactFilter === 'hint') return c.hint !== '';
+    if (contactFilter === 'nohint') return c.hint === '';
+    return c.hint.includes(contactFilter);
+  });
+
+  function buildWA(rawPhone) {
+    let p = rawPhone.replace(/\D/g,'');
+    if (p.startsWith('0')) p = p.substring(1);
+    if (p.length === 8) p = '65' + p; // SG
+    return p.length >= 8 ? `https://wa.me/${p}` : null;
+  }
+
+  let html = `<div class="sub" style="margin-bottom:8px">${list.length} contacts</div>`;
+  if (!list.length) { html += `<div class="empty">No contacts found</div>`; }
+  list.forEach(c => {
+    const waUrl = c.phone ? buildWA(c.phone) : null;
+    html += `<div class="card" style="padding:10px 14px">
+      <div class="row">
+        <div class="col" style="flex:1;min-width:0">
+          <div class="name" style="font-size:13px">${c.name}</div>
+          ${c.hint ? `<div style="font-size:10px;color:var(--teal);margin-top:2px">📍 ${c.hint}</div>` : ''}
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${c.phone}</div>
+        </div>
+        ${waUrl ? `<a href="${waUrl}" style="text-decoration:none;font-size:18px">💬</a>` : ''}
+      </div>
+    </div>`;
+  });
+  const el = document.getElementById('contactList');
+  if (el) el.innerHTML = html;
+} // end renderContactList
+
+// ── CIMB PIPELINE ─────────────────────────────────────────────────────────
+let cimbSearch = '', cimbFilter = 'All';
+
+function renderCIMB() {
+  const UNLOCK = new Date('2027-03-03');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const unlocked = today >= UNLOCK;
+  const msLeft = UNLOCK - today;
+  const months = Math.max(0, Math.floor(msLeft / (1000*60*60*24*30.44)));
+  const days = Math.max(0, Math.ceil((msLeft % (1000*60*60*24*30.44)) / 86400000));
+  const total = CIMB_DATA.length;
+  const converted = CIMB_DATA.filter(c=>c.converted==='Yes').length;
+  let html = '';
+
+  if (!unlocked) {
+    html += `<div style="background:#e76f5118;border:1px solid var(--red);border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:20px">🔒</div>
+        <div><div style="font-size:13px;font-weight:700;color:var(--red)">Non-Solicitation Active</div>
+        <div style="font-size:11px;color:var(--muted)">Left CIMB: 2 Mar 2026 · Unlocks: 3 Mar 2027</div></div>
+      </div>
+      <div style="background:#0a1520;border-radius:8px;padding:10px 12px;text-align:center">
+        <div style="font-size:22px;font-weight:800;color:var(--red)">${months}m ${days}d</div>
+        <div style="font-size:10px;color:var(--muted)">until you can reach out</div>
+      </div>
+      <div style="margin-top:10px;font-size:11px;color:var(--muted);line-height:1.6">
+        📋 <strong style="color:var(--amber)">Prepare now:</strong> Tag priorities, note relationships, draft your estate &amp; legacy planning message for launch day.
+      </div>
+    </div>`;
+  } else {
+    html += `<div style="background:#22c55e15;border:1px solid var(--green);border-radius:12px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--green)">🔓 Non-Solicitation Ended — You can now reach out!</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Focus: Estate &amp; Legacy Planning · Monthly WhatsApp outreach</div>
+    </div>`;
+  }
+
+  html += `<div style="display:flex;gap:8px;margin-bottom:14px">
+    <div class="stat-box" style="flex:1"><div class="badge" style="color:var(--red)">${total}</div><div class="sub">Total</div></div>
+    <div class="stat-box" style="flex:1"><div class="badge" style="color:var(--amber)">${total-converted}</div><div class="sub">Prospects</div></div>
+    <div class="stat-box" style="flex:1"><div class="badge" style="color:var(--green)">${converted}</div><div class="sub">Converted</div></div>
+  </div>`;
+
+  const hints = [...new Set(CIMB_DATA.flatMap(c=>c.hint?c.hint.split(', '):[],''))].filter(Boolean).sort();
+  html += `<div class="search-bar"><input class="search-input" placeholder="Search CIMB contacts..." oninput="cimbSearch=this.value;renderCIMBList()" value="${cimbSearch}"/></div>`;
+  html += `<div class="filter-scroll">
+    <button class="filter-btn ${cimbFilter==='All'?'active':''}" onclick="cimbFilter='All';renderCIMBList()">All (${total})</button>
+    <button class="filter-btn ${cimbFilter==='Unconverted'?'active':''}" onclick="cimbFilter='Unconverted';renderCIMBList()">Prospects</button>
+    <button class="filter-btn ${cimbFilter==='Converted'?'active':''}" onclick="cimbFilter='Converted';renderCIMBList()">✓ Converted</button>
+    ${hints.slice(0,6).map(h=>`<button class="filter-btn ${cimbFilter===h?'active':''}" onclick="cimbFilter='${h}';renderCIMBList()">${h}</button>`).join('')}
+  </div><div id="cimbList"></div>`;
+
+  document.getElementById('tab-cimb').innerHTML = html;
+  renderCIMBList();
+}
+
+function renderCIMBList() {
+  const unlocked = new Date() >= new Date('2027-03-03');
+  const q = cimbSearch.toLowerCase();
+  const list = CIMB_DATA.filter(c => {
+    if (q && !c.name.toLowerCase().includes(q) && !c.phone.includes(q)) return false;
+    if (cimbFilter==='Unconverted') return c.converted!=='Yes';
+    if (cimbFilter==='Converted') return c.converted==='Yes';
+    if (cimbFilter!=='All') return c.hint.includes(cimbFilter);
+    return true;
+  });
+  const waMsg = encodeURIComponent('Hi, this is Silvester. I wanted to reconnect and share some thoughts on estate and legacy planning that may be relevant for you. Would you be open to a brief chat?');
+
+  function buildWA(rawPhone) {
+    // Remove all non-digits
+    let p = rawPhone.replace(/\D/g,'');
+    // If starts with 0, replace with country code based on length
+    if (p.startsWith('0')) p = p.substring(1);
+    // Already has country code if 10+ digits starting with non-65 prefix
+    // SG: 8 digits → add 65
+    // MY: 9-10 digits starting with 1 → add 60
+    // TH: 9 digits → add 66
+    // Otherwise keep as-is if 10+ digits (already has country code)
+    if (p.length === 8) p = '65' + p;
+    // else p already has country code
+    return p.length >= 8 ? `https://wa.me/${p}?text=${waMsg}` : null;
+  }
+
+  let html = `<div class="sub" style="margin-bottom:8px">${list.length} contacts</div>`;
+  list.forEach(c => {
+    const isConverted = c.converted==='Yes';
+    const displayName = c.name.replace(/\|?\s*CIMB\s*Cx\b[\w\s]*/gi,'').replace(/\|?\s*Cimb\s*Cx\b[\w\s]*/gi,'').trim().replace(/\|$/, '').trim();
+    const waUrl = buildWA(c.phone);
+    html += `<div class="card" style="opacity:${unlocked||isConverted?1:0.8}">
+      <div class="row" style="align-items:flex-start">
+        <div class="col" style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <div class="name" style="font-size:13px">${displayName||c.name}</div>
+            ${isConverted?`<span style="font-size:9px;background:#22c55e20;color:var(--green);padding:2px 6px;border-radius:4px;white-space:nowrap">✓ Client</span>`:''}
+            ${!unlocked&&!isConverted?`<span style="font-size:9px;background:#e76f5120;color:var(--red);padding:2px 5px;border-radius:4px">🔒</span>`:''}
+          </div>
+          ${c.hint?`<div style="font-size:10px;color:var(--teal);margin-top:2px">📍 ${c.hint}</div>`:''}
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">${c.phone}</div>
+          ${c.notes?`<div style="font-size:11px;color:var(--amber);margin-top:3px;font-style:italic">${c.notes}</div>`:''}
+        </div>
+        ${unlocked && waUrl ? `<a href="${waUrl}" style="text-decoration:none;margin-top:2px"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px;white-space:nowrap">💬 WA</span></a>` : ''}
+      </div>
+    </div>`;
+  });
+  if (!list.length) html+=`<div class="empty">No contacts found</div>`;
+  if (CIMB_DATA.length===0) html=`<div class="empty">No data yet — import CIMB_Pipeline sheet into Google Sheets and sync</div>`;
+  document.getElementById('cimbList').innerHTML = html;
+}
+
+const fab = document.createElement('button');
+fab.id = 'exportBtn';
+fab.textContent = '📋 Export for Claude';
+fab.onclick = exportForClaude;
+fab.style.cssText = `position:fixed;bottom:90px;right:16px;background:var(--purple);color:#fff;border:none;border-radius:24px;padding:10px 16px;font-size:12px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px #0008;z-index:150;font-family:'-apple-system',sans-serif;`;
+document.body.appendChild(fab);
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+renderHome();
+syncData();
+</script>
+</body>
+</html>
