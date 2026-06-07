@@ -178,6 +178,8 @@
 <script>
 // ── CONFIG ────────────────────────────────────────────────────────────────
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxE1K9K4KpkW6nsBnuc5KvAWtLkml9RXJVA8QTga9BzvzorB9ondpJXtsoxzyjc1MHbgQ/exec?token=silnetwork2024sc';
+const APPS_SCRIPT_POST = 'https://script.google.com/macros/s/AKfycbxE1K9K4KpkW6nsBnuc5KvAWtLkml9RXJVA8QTga9BzvzorB9ondpJXtsoxzyjc1MHbgQ/exec';
+const TOKEN = 'silnetwork2024sc';
 let lastSyncTime = null;
 
 // ── DATA ──────────────────────────────────────────────────────────────────
@@ -965,6 +967,32 @@ function addNote(id, text, type='client') {
   const notes = getNotes(id);
   notes.push({ text: text.trim(), ts: new Date().toISOString(), type });
   localStorage.setItem('sil_notes_'+id, JSON.stringify(notes));
+  postInteractionToSheet(id, text.trim(), type);
+}
+function postInteractionToSheet(id, text, type) {
+  try {
+    const client = CLIENTS_DATA.find(c=>c.id===id);
+    const collab = COLLABS_DATA.find(c=>c.id===id);
+    const person = client || collab;
+    if (!person) return;
+    fetch(APPS_SCRIPT_POST, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: {'Content-Type': 'text/plain'},
+      body: JSON.stringify({
+        token: TOKEN,
+        action: 'log_interaction',
+        personId: id,
+        personName: person.name,
+        personType: client ? 'Client' : 'Collab',
+        interactionType: type === 'followup' ? 'Follow-up' : 'Note',
+        direction: 'Outbound',
+        notes: text,
+        nextFollowup: '',
+        nextAction: ''
+      })
+    }).catch(e => console.warn('Sheet sync failed:', e));
+  } catch(e) { console.warn('postInteraction error:', e); }
 }
 function renderNotes(id, containerId) {
   const notes = getNotes(id);
