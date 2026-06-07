@@ -455,129 +455,75 @@ function renderHome() {
     document.getElementById('hAUMTotal').textContent = '—';
     return;
   }
+  try {
   const today = new Date(); today.setHours(0,0,0,0);
-  const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days<=30).sort((a,b)=>a.days-b.days);
-  const cgAlerts = POLICIES_DATA.filter(p=>p.product.includes('Flexi Life Income II')).map(p=>{
+  const bdayAgeText = function(dob) {
+    try {
+      const bd = new Date(dob);
+      if (isNaN(bd)) return '';
+      const thisYearBday = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+      const hasPassed = thisYearBday < today;
+      const currentAge = today.getFullYear() - bd.getFullYear() - (hasPassed ? 0 : 1);
+      return `${bd.toLocaleDateString('en-GB',{day:'numeric',month:'long'})} · Age ${currentAge} → ${currentAge+1}`;
+    } catch(e) { return ''; }
+  };
+  const bdayAlerts = CLIENTS_DATA.filter(c=>c.dob).map(c=>({...c,days:daysUntilBday(c.dob)})).filter(c=>c.days!=null&&c.days<=30).sort((a,b)=>a.days-b.days);
+  const cgAlerts = POLICIES_DATA.filter(p=>String(p.product||'').includes('Flexi Life Income II')).map(p=>{
     const cg = cgDate(p.inception);
+    if (!cg || isNaN(cg)) return null;
     const days = Math.round((cg-today)/86400000);
     return {...p, cgDate:cg, daysToC:days};
-  }).filter(p=>p.daysToC>0&&p.daysToC<=180).sort((a,b)=>a.daysToC-b.daysToC);
-
+  }).filter(p=>p&&p.daysToC>0&&p.daysToC<=180).sort((a,b)=>a.daysToC-b.daysToC);
   const premDue = POLICIES_DATA.filter(p=>!isFullyPaid(p)&&p.freq!=='Single').map(p=>{
     const next = nextPremiumDate(p.inception, p.freq);
-    if (!next) return null;
+    if (!next || isNaN(next)) return null;
     const days = Math.round((next-today)/86400000);
     return {...p, nextDate:next, daysToP:days};
   }).filter(p=>p&&p.daysToP>0&&p.daysToP<=90).sort((a,b)=>a.daysToP-b.daysToP);
-
-  // Update header alerts
   document.getElementById('hBdayAlert').textContent = bdayAlerts.length ? `🎂 ${bdayAlerts.length} bdays` : '';
   document.getElementById('hCGAlert').textContent = cgAlerts.length ? `🛡 ${cgAlerts.length} CG alerts` : '';
-  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+c.aum,0);
+  const totalAUM = CLIENTS_DATA.reduce((s,c)=>s+(c.aum||0),0);
   document.getElementById('hAUMTotal').textContent = 'SGD '+fmtK(totalAUM);
   document.getElementById('hClientsCount').textContent = CLIENTS_DATA.length;
-
   let html = '';
-
-  // BIRTHDAYS
   if (bdayAlerts.length) {
     html += `<div class="section-title">🎂 Birthdays — Next 30 Days</div>`;
     bdayAlerts.forEach(c => {
       const urgent = c.days <= 7;
-      html += `<div class="alert-card ${urgent?'alert-red':'alert-amber'}">
-        <div class="row">
-          <div class="col">
-            <div class="name" style="font-size:14px">${c.name}</div>
-            <div class="sub">${new Date(c.dob).toLocaleDateString('en-GB',{day:'numeric',month:'long'})} · Age ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear() : new Date().getFullYear()-new Date(c.dob).getFullYear()-1} → ${new Date(today.getFullYear(), new Date(c.dob).getMonth(), new Date(c.dob).getDate()) < today ? new Date().getFullYear()-new Date(c.dob).getFullYear()+1 : new Date().getFullYear()-new Date(c.dob).getFullYear()}</div>
-            <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
-              ${tag(c.cat, catColor(c.cat))}
-              ${c.mobile?`<a href="https://wa.me/65${c.mobile}" style="text-decoration:none">${tag('💬 WhatsApp','var(--green)')}</a>`:''}
-            </div>
-          </div>
-          <div style="text-align:right">
-            <div class="badge" style="color:${urgent?'var(--red)':'var(--amber)'}">${c.days===0?'TODAY':c.days+'d'}</div>
-          </div>
-        </div>
-      </div>`;
+      html += `<div class="alert-card ${urgent?'alert-red':'alert-amber'}"><div class="row"><div class="col"><div class="name" style="font-size:14px">${c.name}</div><div class="sub">${bdayAgeText(c.dob)}</div><div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">${tag(c.cat,catColor(c.cat))}${c.mobile?`<a href="https://wa.me/65${c.mobile}" style="text-decoration:none">${tag('💬 WhatsApp','var(--green)')}</a>`:''}</div></div><div style="text-align:right"><div class="badge" style="color:${urgent?'var(--red)':'var(--amber)'}">${c.days===0?'TODAY':c.days+'d'}</div></div></div></div>`;
     });
   }
-
-  // CAPITAL GUARANTEE ALERTS
   if (cgAlerts.length) {
     html += `<div class="section-title">🛡 Capital Guarantee — Approaching 3 Years</div>`;
     cgAlerts.forEach(p => {
-      const client = CLIENTS_DATA.find(c=>c.id===p.clientId)||{};
       const urgent = p.daysToC <= 60;
-      html += `<div class="alert-card ${urgent?'alert-red':'alert-teal'}">
-        <div class="row">
-          <div class="col">
-            <div class="name" style="font-size:14px">${p.client}</div>
-            <div class="sub">Policy ${p.polId} · ${fmt(p.ap)}/yr</div>
-            <div class="sub">CG Date: ${p.cgDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-            <div style="margin-top:4px">${tag('⚠ Singlife backdating — verify actual CG date','var(--amber)')}</div>
-          </div>
-          <div style="text-align:right">
-            <div class="badge" style="color:${urgent?'var(--red)':'var(--teal)'}">${p.daysToC}d</div>
-            <div class="sub">to CG</div>
-          </div>
-        </div>
-      </div>`;
+      const cgStr = (!p.cgDate||isNaN(p.cgDate)) ? '—' : p.cgDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      html += `<div class="alert-card ${urgent?'alert-red':'alert-teal'}"><div class="row"><div class="col"><div class="name" style="font-size:14px">${p.client}</div><div class="sub">Policy ${p.polId} · ${fmt(p.ap)}/yr</div><div class="sub">CG Date: ${cgStr}</div><div style="margin-top:4px">${tag('⚠ Singlife backdating — verify actual CG date','var(--amber)')}</div></div><div style="text-align:right"><div class="badge" style="color:${urgent?'var(--red)':'var(--teal)'}">${p.daysToC}d</div><div class="sub">to CG</div></div></div></div>`;
     });
   }
-
-  // PREMIUMS DUE
   if (premDue.length) {
     html += `<div class="section-title">⚡ Premiums Due — Next 90 Days</div>`;
     premDue.forEach(p => {
-      const key = p.polId;
-      const done = followedUp[key];
-      const urgent = p.daysToP <= 30;
-      html += `<div class="alert-card ${done?'followed-up':urgent?'alert-red':'alert-amber'}" id="prem_${key}">
-        <div class="row">
-          <div class="col" style="flex:1">
-            <div class="name" style="font-size:14px">${p.client}</div>
-            <div class="sub">${p.insurer} · ${p.product.length>28?p.product.substring(0,28)+'…':p.product}</div>
-            <div class="money" style="font-size:13px;margin-top:4px">${fmt(p.ap)}</div>
-            <div class="sub">Due: ${p.nextDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-            <div style="margin-top:6px">
-              <button class="action-btn ${done?'btn-ghost':'btn-teal'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUp('${key}')">
-                ${done?'✓ Followed Up':'Mark Followed Up'}
-              </button>
-            </div>
-          </div>
-          <div style="text-align:right;min-width:50px">
-            <div class="badge" style="color:${done?'var(--green)':urgent?'var(--red)':'var(--amber)'}">${done?'✓':p.daysToP+'d'}</div>
-          </div>
-        </div>
-      </div>`;
+      const key = p.polId; const done = followedUp[key]; const urgent = p.daysToP <= 30;
+      const prod = String(p.product||'');
+      const dueStr = (!p.nextDate||isNaN(p.nextDate)) ? '—' : p.nextDate.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+      html += `<div class="alert-card ${done?'followed-up':urgent?'alert-red':'alert-amber'}" id="prem_${key}"><div class="row"><div class="col" style="flex:1"><div class="name" style="font-size:14px">${p.client}</div><div class="sub">${p.insurer} · ${prod.length>28?prod.substring(0,28)+'…':prod}</div><div class="money" style="font-size:13px;margin-top:4px">${fmt(p.ap)}</div><div class="sub">Due: ${dueStr}</div><div style="margin-top:6px"><button class="action-btn ${done?'btn-ghost':'btn-teal'}" style="font-size:11px;padding:5px 12px" onclick="toggleFollowUp('${key}')">${done?'✓ Followed Up':'Mark Followed Up'}</button></div></div><div style="text-align:right;min-width:50px"><div class="badge" style="color:${done?'var(--green)':urgent?'var(--red)':'var(--amber)'}">${done?'✓':p.daysToP+'d'}</div></div></div></div>`;
     });
   }
-
-  if (!bdayAlerts.length && !cgAlerts.length && !premDue.length) {
-    html += `<div class="empty">✅ All clear today — nothing urgent</div>`;
-  }
-
-  // 60-day follow-up overdue
-  const overdue = CLIENTS_DATA.filter(c=>daysSinceFollowUp(c.id)>=60)
-    .sort((a,b)=>daysSinceFollowUp(b.id)-daysSinceFollowUp(a.id)).slice(0,10);
+  if (!bdayAlerts.length && !cgAlerts.length && !premDue.length) html += `<div class="empty">✅ All clear today — nothing urgent</div>`;
+  const overdue = CLIENTS_DATA.filter(c=>daysSinceFollowUp(c.id)>=60).sort((a,b)=>daysSinceFollowUp(b.id)-daysSinceFollowUp(a.id)).slice(0,10);
   if (overdue.length) {
     html += `<div class="section-title" style="margin-top:18px">📅 Follow-up Overdue (60+ days)</div>`;
     overdue.forEach(c => {
       const d = daysSinceFollowUp(c.id);
-      html += `<div class="alert-card alert-amber" style="cursor:pointer" onclick="openClient('${c.id}')">
-        <div class="row">
-          <div class="col">
-            <div class="name" style="font-size:14px">${c.name}</div>
-            <div class="sub">${c.cat} · ${d===999?'Never contacted':d+'d ago'}</div>
-            ${c.mobile?`<a href="https://wa.me/65${c.mobile}" onclick="event.stopPropagation()" style="text-decoration:none;margin-top:4px;display:inline-block"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px">💬 WhatsApp</span></a>`:''}
-          </div>
-          <div class="badge" style="color:var(--amber);font-size:16px">${d===999?'!':d+'d'}</div>
-        </div>
-      </div>`;
+      html += `<div class="alert-card alert-amber" style="cursor:pointer" onclick="openClient('${c.id}')"><div class="row"><div class="col"><div class="name" style="font-size:14px">${c.name}</div><div class="sub">${c.cat} · ${d===999?'Never contacted':d+'d ago'}</div>${c.mobile?`<a href="https://wa.me/65${c.mobile}" onclick="event.stopPropagation()" style="text-decoration:none;margin-top:4px;display:inline-block"><span class="tag" style="color:var(--green);border-color:#22c55e44;background:#22c55e15;font-size:10px">💬 WhatsApp</span></a>`:''}</div><div class="badge" style="color:var(--amber);font-size:16px">${d===999?'!':d+'d'}</div></div></div>`;
     });
   }
-
   document.getElementById('tab-home').innerHTML = html;
+  } catch(renderErr) {
+    console.error('renderHome crashed:', renderErr);
+    document.getElementById('tab-home').innerHTML = `<div style="text-align:center;padding:40px 24px"><div style="font-size:32px;margin-bottom:12px">⚠️</div><div style="color:var(--red);font-size:14px;font-weight:600;margin-bottom:8px">Today tab error</div><div style="color:var(--muted);font-size:11px;font-family:monospace;background:#0a1520;padding:10px;border-radius:6px;margin-bottom:16px;word-break:break-all;text-align:left">${renderErr.message}</div><button class="action-btn btn-teal" onclick="syncData()">↻ Re-sync</button></div>`;
+  }
 }
 
 function toggleFollowUp(key) {
